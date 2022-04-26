@@ -61,6 +61,7 @@ impl Context {
 mod tests {
     use std::borrow::Borrow;
     use crate::{Context, Node};
+    use crate::comps::IndexComp;
 
     #[test]
     fn it_works() {
@@ -73,15 +74,18 @@ mod tests {
     fn main() {
         let ctx = Context::new();
 
-        let mut root_1 = Node::from_data(&[6.], ctx.nodes.clone());
-        let mut root_2 = Node::from_data(&[4.], ctx.nodes.clone());
+        let mut root_1 = Node::from_data(&[6., 1.], ctx.nodes.clone());
+        let mut root_2 = Node::from_data(&[4., 2.], ctx.nodes.clone());
 
         let mul_node = &root_1 * &root_2;
         let add_node = &mul_node + &root_1;
-        let grads = ctx.derive(add_node.clone());
+        let res = IndexComp::apply(&add_node, (0..2).map(|i|(i, 0)), 1);
+        let grads = ctx.derive(res.clone());
+        println!("res: {:?}", &res.borrow().data);
 
         println!("{:?}", &add_node.borrow().data);
         println!("{:?}", &grads.get(&root_1).unwrap().borrow().data);
         println!("{:?}", &grads.get(&root_2).unwrap().borrow().data);
+
     }
 }

@@ -1,5 +1,5 @@
 use std::ops::{Add, Mul};
-use itertools::izip;
+use itertools::{Itertools, izip};
 use crate::{Node, NodeRef};
 
 pub trait Computation {
@@ -87,5 +87,43 @@ impl Mul for &NodeRef {
 
     fn mul(self, rhs: Self) -> Self::Output {
         MulComp::apply(self, rhs)
+    }
+}
+
+/// A computation that takes indices from an array.
+/// The indices must be unique.
+#[derive(Clone)]
+pub struct IndexComp  {
+    node: NodeRef,
+    indices: Vec<(usize, usize)>,
+    length: usize,
+}
+
+impl IndexComp {
+    pub fn apply<Iter: Iterator<Item=(usize, usize)>>(node: &NodeRef, iter: Iter, length: usize) -> NodeRef {
+        // Making sure all indices are legal.
+        let indices: Vec<(usize, usize)> = iter.collect();
+        assert!(indices.iter().all(|idx|idx.0 < node.borrow().len()));
+        assert!(indices.iter().all(|idx|idx.1 < length));
+
+        let mut data = vec![0.; length];
+        for (src, tar) in indices.iter() {
+            data[*tar] += node.borrow().data[*src];
+        }
+        let comp = Box::new(IndexComp {node: node.clone(), indices, length});
+        let node = Node::from_comp(&data, comp, node.borrow().alloc.clone());
+        node
+    }
+}
+
+impl Computation for IndexComp {
+    fn sources(&self) -> Vec<NodeRef> {
+        vec![self.node.clone()]
+    }
+
+    fn backpropagate(&self, res_grads: NodeRef) -> Vec<NodeRef> {
+        let src_len = self.node.borrow().len();
+        let inverted_indices = self.indices.iter().map(|(i, j)|(*j, *i));
+        vec![IndexComp::apply(&res_grads, inverted_indices, src_len)]
     }
 }

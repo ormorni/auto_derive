@@ -29,10 +29,10 @@ struct AddComp {
 
 impl <'t> AddComp {
     fn apply(p1: &NodeRef, p2: &NodeRef) -> NodeRef {
-        assert_eq!(p1.borrow().len(), p2.borrow().len());
-        let data: Vec<f64> = izip!(p1.borrow().data.iter(), p2.borrow().data.iter()).map(|(v1, v2)|v1 + v2).collect();
+        assert_eq!(p1.len(), p2.len());
+        let data: Vec<f64> = izip!(p1.data.iter(), p2.data.iter()).map(|(v1, v2)|v1 + v2).collect();
         let comp = Box::new(AddComp {p1: p1.clone(), p2: p2.clone()});
-        let node = Node::from_comp(&data, comp, p1.borrow().alloc.clone());
+        let node = Node::from_comp(&data, comp, p1.alloc.clone());
         node
     }
 }
@@ -64,10 +64,10 @@ struct MulComp {
 
 impl <'t> MulComp {
     fn apply(p1: &NodeRef, p2: &NodeRef) -> NodeRef {
-        assert_eq!(p1.borrow().len(), p2.borrow().len());
-        let data: Vec<f64> = izip!(p1.borrow().data.iter(), p2.borrow().data.iter()).map(|(v1, v2)|v1 * v2).collect();
+        assert_eq!(p1.len(), p2.len());
+        let data: Vec<f64> = izip!(p1.data.iter(), p2.data.iter()).map(|(v1, v2)|v1 * v2).collect();
         let comp = Box::new(MulComp {p1: p1.clone(), p2: p2.clone()});
-        let node = Node::from_comp(&data, comp, p1.borrow().alloc.clone());
+        let node = Node::from_comp(&data, comp, p1.alloc.clone());
         node
     }
 }
@@ -103,15 +103,15 @@ impl IndexComp {
     pub fn apply<Iter: Iterator<Item=(usize, usize)>>(node: &NodeRef, iter: Iter, length: usize) -> NodeRef {
         // Making sure all indices are legal.
         let indices: Vec<(usize, usize)> = iter.collect();
-        assert!(indices.iter().all(|idx|idx.0 < node.borrow().len()));
+        assert!(indices.iter().all(|idx|idx.0 < node.len()));
         assert!(indices.iter().all(|idx|idx.1 < length));
 
         let mut data = vec![0.; length];
         for (src, tar) in indices.iter() {
-            data[*tar] += node.borrow().data[*src];
+            data[*tar] += node.data[*src];
         }
         let comp = Box::new(IndexComp {node: node.clone(), indices, length});
-        let node = Node::from_comp(&data, comp, node.borrow().alloc.clone());
+        let node = Node::from_comp(&data, comp, node.alloc.clone());
         node
     }
 }
@@ -122,7 +122,7 @@ impl Computation for IndexComp {
     }
 
     fn backpropagate(&self, res_grads: NodeRef) -> Vec<NodeRef> {
-        let src_len = self.node.borrow().len();
+        let src_len = self.node.len();
         let inverted_indices = self.indices.iter().map(|(i, j)|(*j, *i));
         vec![IndexComp::apply(&res_grads, inverted_indices, src_len)]
     }

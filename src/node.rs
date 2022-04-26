@@ -1,6 +1,7 @@
 use std::cell::{Ref, RefCell, RefMut};
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
+use std::ops::Deref;
 use std::rc::Rc;
 use crate::Rf;
 use crate::comps::{Computation, NullComp};
@@ -38,20 +39,20 @@ impl Node {
 
 #[derive(Clone)]
 pub struct NodeRef {
-    node: Rc<RefCell<Node>>
+    node: Rc<Node>
 }
 
 impl NodeRef {
     pub fn new(node: Node) -> Self {
-        NodeRef {node: Rc::new(RefCell::new(node))}
+        NodeRef {node: Rc::new(node)}
     }
+}
 
-    pub fn borrow(&self) -> Ref<Node> {
-        (*self.node).borrow()
-    }
+impl Deref for NodeRef {
+    type Target = Node;
 
-    pub fn borrow_mut(&self) -> RefMut<Node> {
-        (*self.node).borrow_mut()
+    fn deref(&self) -> &Self::Target {
+        self.node.deref()
     }
 }
 
@@ -85,25 +86,25 @@ impl Eq for NodeRef {}
 
 impl PartialEq<Self> for NodeRef {
     fn eq(&self, other: &Self) -> bool {
-        self.borrow().eq(&*other.borrow())
+        self.deref().eq(&*other.deref())
     }
 }
 
 impl PartialOrd<Self> for NodeRef {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.borrow().partial_cmp(&*other.borrow())
+        self.deref().partial_cmp(&*other.deref())
     }
 }
 
 impl Ord for NodeRef {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.borrow().cmp(&*other.borrow())
+        self.deref().cmp(other.deref())
     }
 }
 
 impl Hash for NodeRef {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.borrow().hash(state)
+        self.deref().hash(state)
     }
 }
 

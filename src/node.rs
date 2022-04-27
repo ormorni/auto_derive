@@ -1,24 +1,34 @@
-use std::cell::{Ref, RefCell, RefMut};
+use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::rc::Rc;
-use crate::Rf;
 use crate::comps::{Computation, NullComp};
 
+
+/// A wrapper over a float array, which dynamically creates a computation graph.
+/// The computation graph can then be used to automatically calculate derivatives of complex functions
+/// using backward propagation.
+/// It is never used directly, and only used inside a NodeRef.
 pub struct Node {
+    /// The data stored by the node.
     pub data: Vec<f64>,
+    /// The computation used to calculate the node. Tracks the computation graph.
     pub comp: Box<dyn Computation>,
-    pub alloc: Rf<Vec<NodeRef>>,
+    /// An allocator used to allocate new nodes of the computation graph.
+    pub alloc: Rc<RefCell<Vec<NodeRef>>>,
+    /// An ID, used to easily sort the nodes by order of creation.
     id: usize,
 }
 
 impl Node {
-    pub fn from_data(data: &[f64], alloc: Rf<Vec<NodeRef>>) -> NodeRef {
+    /// Initializes a node from a slice of floats.
+    pub fn from_data(data: &[f64], alloc: Rc<RefCell<Vec<NodeRef>>>) -> NodeRef {
         Node::from_comp(data, Box::new(NullComp {}), alloc)
     }
 
-    pub fn from_comp(data: &[f64], comp: Box<dyn Computation>, alloc: Rf<Vec<NodeRef>>) -> NodeRef {
+    /// Initializes a node from a slice of floats and the computation used to calculate it.
+    pub fn from_comp(data: &[f64], comp: Box<dyn Computation>, alloc: Rc<RefCell<Vec<NodeRef>>>) -> NodeRef {
         let mut nodes = (*alloc).borrow_mut();
         let len = nodes.len();
 
@@ -37,13 +47,16 @@ impl Node {
     }
 }
 
+/// A struct proving a comfortable handle for the actual nodes.
 #[derive(Clone)]
 pub struct NodeRef {
     node: Rc<Node>
 }
 
 impl NodeRef {
-    pub fn new(node: Node) -> Self {
+    /// A constructor for node references from a raw node.
+    /// Used only in the Node's constructors.
+    pub(crate) fn new(node: Node) -> Self {
         NodeRef {node: Rc::new(node)}
     }
 }

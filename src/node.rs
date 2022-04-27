@@ -1,10 +1,9 @@
+use crate::comps::{Computation, NullComp};
 use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::rc::Rc;
-use crate::comps::{Computation, NullComp};
-
 
 /// A wrapper over a float array, which dynamically creates a computation graph.
 /// The computation graph can then be used to automatically calculate derivatives of complex functions
@@ -28,7 +27,11 @@ impl Node {
     }
 
     /// Initializes a node from a slice of floats and the computation used to calculate it.
-    pub fn from_comp(data: &[f64], comp: Box<dyn Computation>, alloc: Rc<RefCell<Vec<NodeRef>>>) -> NodeRef {
+    pub fn from_comp(
+        data: &[f64],
+        comp: Box<dyn Computation>,
+        alloc: Rc<RefCell<Vec<NodeRef>>>,
+    ) -> NodeRef {
         let mut nodes = (*alloc).borrow_mut();
         let len = nodes.len();
 
@@ -50,14 +53,16 @@ impl Node {
 /// A struct proving a comfortable handle for the actual nodes.
 #[derive(Clone)]
 pub struct NodeRef {
-    node: Rc<Node>
+    node: Rc<Node>,
 }
 
 impl NodeRef {
     /// A constructor for node references from a raw node.
     /// Used only in the Node's constructors.
     pub(crate) fn new(node: Node) -> Self {
-        NodeRef {node: Rc::new(node)}
+        NodeRef {
+            node: Rc::new(node),
+        }
     }
 }
 
@@ -120,5 +125,3 @@ impl Hash for NodeRef {
         self.deref().hash(state)
     }
 }
-
-

@@ -2,14 +2,13 @@
 /// To make implementing unary functions simpler,
 /// the trait DerivableOp allows easy definition of derivable functions,
 /// which can then be used with UnaryComp.
-
 use crate::comps::Computation;
 use crate::node::{Node, NodeRef};
 
 /// A trait for derivable functions.
 /// Used to more easily implement pointwise functions on arrays.
 pub trait DerivableOp {
-    type Derivative : DerivableOp;
+    type Derivative: DerivableOp;
 
     /// Applies the function to a float.
     fn apply(&self, src: &f64) -> f64;
@@ -19,8 +18,7 @@ pub trait DerivableOp {
 
 /// A function returning zero.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
-struct ZeroFunc {
-}
+struct ZeroFunc {}
 
 impl DerivableOp for ZeroFunc {
     type Derivative = ZeroFunc;
@@ -54,8 +52,7 @@ impl DerivableOp for ConstFunc {
 
 /// The identity function.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
-struct IdentFunc {
-}
+struct IdentFunc {}
 
 impl DerivableOp for IdentFunc {
     type Derivative = ConstFunc;
@@ -65,14 +62,13 @@ impl DerivableOp for IdentFunc {
     }
 
     fn derivative(&self) -> Self::Derivative {
-        ConstFunc {cons: 1.}
+        ConstFunc { cons: 1. }
     }
 }
 
 /// The signum function.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
-struct SignumFunc {
-}
+struct SignumFunc {}
 
 impl DerivableOp for SignumFunc {
     type Derivative = ZeroFunc;
@@ -88,8 +84,7 @@ impl DerivableOp for SignumFunc {
 
 /// The absolute value function.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
-struct AbsFunc {
-}
+struct AbsFunc {}
 
 impl DerivableOp for AbsFunc {
     type Derivative = SignumFunc;
@@ -105,8 +100,7 @@ impl DerivableOp for AbsFunc {
 
 /// The exponent function.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
-struct ExpFunc {
-}
+struct ExpFunc {}
 
 impl DerivableOp for ExpFunc {
     type Derivative = ExpFunc;
@@ -136,17 +130,22 @@ impl DerivableOp for PowiFunc {
 
     fn derivative(&self) -> Self::Derivative {
         if self.power != 0 {
-            PowiFunc {power: self.power - 1, coef: self.coef * self.power}
+            PowiFunc {
+                power: self.power - 1,
+                coef: self.coef * self.power,
+            }
         } else {
-            PowiFunc {power: 0, coef: self.coef * self.power}
+            PowiFunc {
+                power: 0,
+                coef: self.coef * self.power,
+            }
         }
     }
 }
 
 /// The natural logarithm function.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
-struct LnFunc {
-}
+struct LnFunc {}
 
 impl DerivableOp for LnFunc {
     type Derivative = PowiFunc;
@@ -156,13 +155,9 @@ impl DerivableOp for LnFunc {
     }
 
     fn derivative(&self) -> Self::Derivative {
-        PowiFunc {
-            power: -1,
-            coef: 1,
-        }
+        PowiFunc { power: -1, coef: 1 }
     }
 }
-
 
 /// The sine function.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
@@ -180,11 +175,13 @@ impl DerivableOp for SinFunc {
     type Derivative = CosFunc;
 
     fn apply(&self, src: &f64) -> f64 {
-        src.sin() * if self.sign_flip {-1.} else {1.}
+        src.sin() * if self.sign_flip { -1. } else { 1. }
     }
 
     fn derivative(&self) -> Self::Derivative {
-        CosFunc {sign_flip: !self.sign_flip}
+        CosFunc {
+            sign_flip: !self.sign_flip,
+        }
     }
 }
 
@@ -192,11 +189,13 @@ impl DerivableOp for CosFunc {
     type Derivative = SinFunc;
 
     fn apply(&self, src: &f64) -> f64 {
-        src.cos() * if self.sign_flip {-1.} else {1.}
+        src.cos() * if self.sign_flip { -1. } else { 1. }
     }
 
     fn derivative(&self) -> Self::Derivative {
-        SinFunc {sign_flip: self.sign_flip}
+        SinFunc {
+            sign_flip: self.sign_flip,
+        }
     }
 }
 
@@ -208,16 +207,19 @@ pub struct UnaryComp<Op: DerivableOp> {
     op: Op,
 }
 
-impl <Op: 'static +  DerivableOp> UnaryComp<Op> {
+impl<Op: 'static + DerivableOp> UnaryComp<Op> {
     fn apply(node: NodeRef, op: Op) -> NodeRef {
-        let data: Vec<f64> = node.data.iter().map(|f|op.apply(f)).collect();
-        let comp = Box::new(UnaryComp {src: node.clone(), op});
+        let data: Vec<f64> = node.data.iter().map(|f| op.apply(f)).collect();
+        let comp = Box::new(UnaryComp {
+            src: node.clone(),
+            op,
+        });
         let res = Node::from_comp(&data, comp, node.alloc.clone());
         res
     }
 }
 
-impl <Op: DerivableOp + 'static> Computation for UnaryComp<Op> {
+impl<Op: DerivableOp + 'static> Computation for UnaryComp<Op> {
     fn sources(&self) -> Vec<NodeRef> {
         vec![self.src.clone()]
     }
@@ -239,7 +241,7 @@ impl NodeRef {
         UnaryComp::apply(self.clone(), ExpFunc {})
     }
     pub fn powi(&self, power: i32) -> NodeRef {
-        UnaryComp::apply(self.clone(), PowiFunc { power, coef: 1})
+        UnaryComp::apply(self.clone(), PowiFunc { power, coef: 1 })
     }
     pub fn signum(&self) -> NodeRef {
         UnaryComp::apply(self.clone(), SignumFunc {})
@@ -252,6 +254,4 @@ impl NodeRef {
     }
 }
 
-mod tests {
-
-}
+mod tests {}

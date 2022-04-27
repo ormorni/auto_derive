@@ -1,12 +1,11 @@
+use crate::node::{Node, NodeRef};
+use fxhash::FxHashMap;
+use itertools::izip;
 use std::cell::RefCell;
 use std::collections::BinaryHeap;
 use std::rc::Rc;
-use fxhash::FxHashMap;
-use itertools::izip;
-use crate::node::{Node, NodeRef};
 
 type Map<K, V> = FxHashMap<K, V>;
-
 
 /// A computation graph context.
 /// Used to store the computation graph and perform derivations on it.
@@ -17,12 +16,19 @@ pub struct Context {
 impl Context {
     /// Initializes an new computation context.
     pub fn new() -> Self {
-        Context {nodes: Rc::new(RefCell::new(Vec::new()))}
+        Context {
+            nodes: Rc::new(RefCell::new(Vec::new())),
+        }
     }
 
     /// Calculates the derivative of the target value with respect to all intermediates in the computation graph.
     pub fn derive(&self, res: NodeRef) -> Map<NodeRef, NodeRef> {
-        assert_eq!(res.len(), 1, "Derivatives are supported only for Nodes with a single element! Real len is {}", res.len());
+        assert_eq!(
+            res.len(),
+            1,
+            "Derivatives are supported only for Nodes with a single element! Real len is {}",
+            res.len()
+        );
 
         // Initializing derivation data structures.
         let mut grads = Map::default();

@@ -1,6 +1,6 @@
 use crate::node::{Node, NodeRef};
 use itertools::izip;
-use std::ops::{Add, Div, Mul};
+use std::ops::{Add, Div, Mul, Sub};
 
 /// A trait representing the computations which were used to generate nodes in the computation graph.
 /// Used to perform the backward propagation.
@@ -63,6 +63,14 @@ impl Add for &NodeRef {
 
     fn add(self, rhs: Self) -> Self::Output {
         AddComp::apply(self, rhs)
+    }
+}
+
+impl Sub for &NodeRef {
+    type Output = NodeRef;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        self + &-rhs
     }
 }
 
@@ -168,5 +176,72 @@ impl Computation for IndexComp {
         let src_len = self.node.len();
         let inverted_indices = self.indices.iter().map(|(i, j)| (*j, *i));
         vec![IndexComp::apply(&res_grads, inverted_indices, src_len)]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::node::{Node, NodeRef};
+    use rand::prelude::{StdRng, Rng};
+    use rand::SeedableRng;
+    use crate::context::Context;
+
+    const SEED: [u8; 32] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31];
+    const DIFF: f64 = 1e-7;
+    const ALLOWED_ERROR: f64 = 1e-3;
+
+    /// Asserts that two floating point numbers are close to each other.
+    /// Tests that the ratio of the difference and the average is smaller than the allowed value.
+    fn assert_close(a: f64, b: f64) {
+        if a != b {
+            let error = (a - b).abs() * 2. / (a.abs() + b.abs());
+            assert!(error < ALLOWED_ERROR, "Values are not close: a={} b={} error={}", a, b, error);
+        }
+    }
+
+    /// Tests a generic binary function.
+    fn test_binary(func: impl Fn(NodeRef, NodeRef) -> NodeRef) {
+        let mut rng = StdRng::from_seed(SEED);
+        for _ in 0..100 {
+            let v1: f64 = rng.gen::<f64>() * 100. - 50.;
+            let v2: f64 = rng.gen::<f64>() * 100. - 50.;
+            let d1: f64 = (rng.gen::<f64>() * 100. - 50.) * DIFF + v1 * (1. - DIFF);
+            let d2: f64 = (rng.gen::<f64>() * 100. - 50.) * DIFF + v2 * (1. - DIFF);
+
+            let ctx = Context::new();
+            let node1 = Node::from_data(&[v1], ctx.nodes.clone());
+            let node2 = Node::from_data(&[v2], ctx.nodes.clone());
+            let diff1 = Node::from_data(&[d1], ctx.nodes.clone());
+            let diff2 = Node::from_data(&[d2], ctx.nodes.clone());
+
+            let calc = func(node1.clone(), node2.clone());
+            let calc_d1 = func(diff1.clone(), node2.clone());
+            let calc_d2 = func(node1.clone(), diff2.clone());
+
+            let grad_map = ctx.derive(func(node1.clone(), node2.clone()));
+
+            let grad1 = grad_map.get(&node1).unwrap().data[0];
+            let grad2 = grad_map.get(&node2).unwrap().data[0];
+
+            assert_close(grad1 * (d1 - v1), calc_d1.data[0] - calc.data[0]);
+            assert_close(grad2 * (d2 - v2), calc_d2.data[0] - calc.data[0]);
+        }
+    }
+
+    #[test]
+    fn test_add() {
+        test_binary(|node1, node2| &node1 + &node2);
+    }
+    #[test]
+    fn test_sub() {
+        test_binary(|node1, node2| &node1 - &node2);
+    }
+    #[test]
+    fn test_mul() {
+        test_binary(|node1, node2| &node1 * &node2);
+    }
+    #[test]
+    fn test_div() {
+        test_binary(|node1, node2| &node1 / &node2);
     }
 }

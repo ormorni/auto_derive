@@ -1,3 +1,4 @@
+use std::ops::Neg;
 /// Implementation of unary functions for the node.
 /// To make implementing unary functions simpler,
 /// the trait DerivableOp allows easy definition of derivable functions,
@@ -42,7 +43,7 @@ impl DerivableOp for ConstFunc {
     type Derivative = ZeroFunc;
 
     fn apply(&self, _: &f64) -> f64 {
-        0.
+        self.cons
     }
 
     fn derivative(&self) -> Self::Derivative {
@@ -159,6 +160,30 @@ impl DerivableOp for LnFunc {
     }
 }
 
+/// The natural logarithm function.
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+struct NegFunc {}
+
+impl DerivableOp for NegFunc {
+    type Derivative = ConstFunc;
+
+    fn apply(&self, src: &f64) -> f64 {
+        -*src
+    }
+
+    fn derivative(&self) -> Self::Derivative {
+        ConstFunc { cons: -1. }
+    }
+}
+
+impl Neg for &NodeRef {
+    type Output = NodeRef;
+
+    fn neg(self) -> Self::Output {
+        UnaryComp::apply(self.clone(), NegFunc {})
+    }
+}
+
 /// The sine function.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 struct SinFunc {
@@ -180,7 +205,7 @@ impl DerivableOp for SinFunc {
 
     fn derivative(&self) -> Self::Derivative {
         CosFunc {
-            sign_flip: !self.sign_flip,
+            sign_flip: self.sign_flip,
         }
     }
 }
@@ -194,7 +219,7 @@ impl DerivableOp for CosFunc {
 
     fn derivative(&self) -> Self::Derivative {
         SinFunc {
-            sign_flip: self.sign_flip,
+            sign_flip: !self.sign_flip,
         }
     }
 }
@@ -254,4 +279,83 @@ impl NodeRef {
     }
 }
 
-mod tests {}
+/// Tests for the unary functions.
+#[cfg(test)]
+mod tests {
+    use std::ops::{Deref, Neg};
+    use crate::node::{Node, NodeRef};
+    use rand::prelude::{StdRng, Rng};
+    use rand::SeedableRng;
+    use crate::context::Context;
+
+    /// A seed for the RNG used to generate test cases.
+    const SEED: [u8; 32] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31];
+    /// The difference used in the analytic differentiation to test the libraries differentiation.
+    const DIFF: f64 = 1e-7;
+    /// The maximal allowed error in the results.
+    const ALLOWED_ERROR: f64 = 1e-3;
+
+    /// Asserts that two floating point numbers are close to each other.
+    /// Tests that the ratio of the difference and the average is smaller than the allowed value.
+    fn assert_close(a: f64, b: f64) {
+        if a != b {
+            let error = (a - b).abs() * 2. / (a.abs() + b.abs());
+            assert!(error < ALLOWED_ERROR, "Values are not close: a={} b={} error={}", a, b, error);
+        }
+    }
+
+    /// Tests a generic unary function.
+    fn test_unary(func: impl Fn(NodeRef) -> NodeRef) {
+        let mut rng = StdRng::from_seed(SEED);
+        for _ in 0..100 {
+            let v1: f64 = rng.gen::<f64>() * 100. - 50.;
+            let v2: f64 = (rng.gen::<f64>() * 100. - 50.) * DIFF + v1 * (1. - DIFF);
+
+            let ctx = Context::new();
+            let node1 = Node::from_data(&[v1], ctx.nodes.clone());
+            let node2 = Node::from_data(&[v2], ctx.nodes.clone());
+
+            let mapped_1 = func(node1.clone());
+            let mapped_2 = func(node2.clone());
+
+            let grad = ctx.derive(mapped_1.clone()).get(&node1).unwrap().data[0];
+
+            assert_close(grad * (v2 - v1), mapped_2.data[0] - mapped_1.data[0]);
+        }
+    }
+
+    #[test]
+    fn test_exp() {
+        test_unary(|node|node.exp());
+    }
+    #[test]
+    fn test_cos() {
+        test_unary(|node|node.cos());
+    }
+    #[test]
+    fn test_sin() {
+        test_unary(|node|node.sin());
+    }
+    #[test]
+    fn test_signum() {
+        test_unary(|node|node.signum());
+    }
+    #[test]
+    fn test_abs() {
+        test_unary(|node|node.abs());
+    }
+    #[test]
+    fn test_ln() {
+        test_unary(|node| if node.data[0] > 0. {node.ln()} else {node});
+    }
+    #[test]
+    fn test_pow() {
+        for i in -5..5 {
+            test_unary(|node|node.powi(i));
+        }
+    }
+    #[test]
+    fn test_neg() {
+        test_unary(|node| (&node).neg());
+    }
+}

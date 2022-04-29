@@ -39,7 +39,7 @@ pub struct Node {
 impl Node {
     /// A constructor for node references from a raw node.
     /// Used only in the Node's constructors.
-    pub(crate) fn new(node: NodeInternal) -> Self {
+    fn new(node: NodeInternal) -> Self {
         Node {
             node: Rc::new(node),
         }

@@ -1,18 +1,18 @@
-#![feature(once_cell)]
-
 pub mod comps;
 pub mod node;
 pub mod unary_functions;
+pub mod binary_functions;
+pub mod index_functions;
 
 #[cfg(test)]
 mod tests {
-    use std::lazy::Lazy;
+    use sloth::Lazy;
     use crate::comps::IndexComp;
     use crate::node::Node;
 
     #[test]
     fn it_works() {
-        let l: Lazy<i32> = Lazy::new(||5);
+        let l: Lazy<i32, _> = Lazy::new(||5);
         let result = 2 + 2;
         assert_eq!(result, 4);
     }

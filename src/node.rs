@@ -1,4 +1,4 @@
-use crate::comps::{Computation, NullComp};
+use crate::comps::{Computation, FromDataComp, NullComp};
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::rc::Rc;
@@ -39,11 +39,7 @@ impl Node {
 
     /// Initializes a node from a slice of floats.
     pub fn from_data(data: &[f64]) -> Node {
-        Node::new(NodeInternal {
-            data: data.to_vec(),
-            comp: Box::new(NullComp {}),
-            id: rand::thread_rng().gen::<usize>(),
-        })
+        Node::from_comp(FromDataComp {data: data.to_vec()})
     }
 
     /// Initializes a node from a slice of floats and the computation used to calculate it.

@@ -29,10 +29,8 @@ impl Computation for AddComp {
 
     fn apply(&self, res_array: &mut [f64]) {
         assert_eq!(res_array.len(), self.len());
-        for i in 0..self.len() {
-            res_array[i] += self.p1.data()[i];
-            res_array[i] += self.p2.data()[i];
-        }
+        self.p1.comp().apply(res_array);
+        self.p2.comp().apply(res_array);
     }
 
     fn len(&self) -> usize {

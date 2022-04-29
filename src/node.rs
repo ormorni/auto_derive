@@ -1,7 +1,4 @@
 use crate::comps::{Computation, NullComp};
-use std::cell::RefCell;
-use std::cmp::Ordering;
-use std::collections::BinaryHeap;
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::rc::Rc;
@@ -42,14 +39,11 @@ impl Node {
 
     /// Initializes a node from a slice of floats.
     pub fn from_data(data: &[f64]) -> Node {
-        let nodes = Rc::new(RefCell::new(Vec::new()));
-        nodes.borrow_mut().push(Node::new(NodeInternal {
+        Node::new(NodeInternal {
             data: data.to_vec(),
             comp: Box::new(NullComp {}),
             id: rand::thread_rng().gen::<usize>(),
-        }));
-        let res = &nodes.borrow()[0];
-        res.clone()
+        })
     }
 
     /// Initializes a node from a slice of floats and the computation used to calculate it.
@@ -66,19 +60,25 @@ impl Node {
         })
 
     }
-
+    /// Returns the length of the array held by the node.
     pub fn len(&self) -> usize {
         self.node.data.len()
     }
 
+    /// Returns a reference to the node's data.
     pub fn data(&self) -> &Vec<f64> {
         &self.node.data
     }
 
+    /// Returns a reference to the node's computation.
     pub fn comp(&self) -> &Box<dyn Computation> {
         &self.node.comp
     }
 
+    /// Performs topological sorting of the node.
+    /// To ensure correct derivations, the backpropagation has to be called on all nodes using a
+    /// given node before being called on it. The topological sorting ensures that the calls to the backpropagation
+    /// satisfies this requirement.
     fn topological_sort(&self) -> Vec<Node> {
         // Topologically sorting the required nodes of the computation graph.
         let mut parent_count = Map::default();
@@ -174,7 +174,7 @@ impl Hash for Node {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use rand::prelude::StdRng;
     use rand::{Rng, SeedableRng};
     use crate::index_functions::IndexComp;
@@ -194,6 +194,7 @@ mod test {
         }
     }
 
+    /// Tests that the derivative of complex random rational functions are evaluated correctly.
     #[test]
     fn test_derivation() {
         let mut rng = StdRng::from_seed(SEED);
@@ -204,7 +205,7 @@ mod test {
             let root = Node::from_data(&[v1, v2]);
 
             let mut arr = vec![];
-            for _ in 0..5 {
+            for _ in 0..3 {
                 arr.push(root.clone());
             }
 

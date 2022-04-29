@@ -1,10 +1,11 @@
-use crate::comps::{Computation, FromDataComp, NullComp};
+use crate::comps::{Computation, FromDataComp};
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::rc::Rc;
 use fxhash::FxHashMap;
 use itertools::izip;
 use rand::Rng;
+use sloth::Lazy;
 
 type Map<K, V> = FxHashMap<K, V>;
 
@@ -15,7 +16,7 @@ type Map<K, V> = FxHashMap<K, V>;
 /// It is never used directly, and only used inside a NodeRef.
 struct NodeInternal {
     /// The data stored by the node.
-    data: Vec<f64>,
+    data: Lazy<Vec<f64>, Box<dyn FnOnce() -> Vec<f64>>>,
     /// The computation used to calculate the node. Tracks the computation graph.
     comp: Box<dyn Computation>,
     /// An ID, used to easily sort the nodes by order of creation.
@@ -44,13 +45,17 @@ impl Node {
 
     /// Initializes a node from a slice of floats and the computation used to calculate it.
     pub fn from_comp(
-        comp: impl Computation + 'static,
+        comp: impl Computation + 'static + Clone,
     ) -> Node {
-        let mut data = vec![0.; comp.len()];
-        comp.apply(&mut data);
+        let ln = comp.len();
+        let cloned_comp = comp.clone();
 
         Node::new(NodeInternal {
-            data: data.to_vec(),
+            data: Lazy::new(Box::new(move || {
+                let mut data = vec![0.; ln];
+                cloned_comp.apply(&mut data);
+                data
+            })),
             comp: Box::new(comp),
             id: rand::thread_rng().gen::<usize>(),
         })

@@ -8,7 +8,7 @@ use crate::node::Node;
 
 /// A trait for derivable functions.
 /// Used to more easily implement pointwise functions on arrays.
-pub trait DerivableOp {
+pub trait DerivableOp : Clone {
     type Derivative: DerivableOp;
 
     /// Applies the function to a float.
@@ -225,6 +225,7 @@ impl DerivableOp for CosFunc {
 }
 
 /// A computation handling generic differentiable functions applied pointwise to arrays.
+#[derive(Clone)]
 pub struct UnaryComp<Op: DerivableOp> {
     /// The parent node.
     src: Node,

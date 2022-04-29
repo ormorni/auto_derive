@@ -1,3 +1,5 @@
+extern crate core;
+
 pub mod comps;
 pub mod node;
 pub mod unary_functions;
@@ -20,7 +22,7 @@ mod tests {
     #[test]
     fn main() {
         let root_1 = Node::from_data(&[-6., 1.]);
-        let root_2 = Node::from_data_and_node(&[4., 2.], &root_1);
+        let root_2 = Node::from_data(&[4., 2.]);
 
         let mul_node = &root_1 * &root_2;
         let add_node = &mul_node + &root_1;

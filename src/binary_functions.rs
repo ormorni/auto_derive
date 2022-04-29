@@ -44,7 +44,7 @@ impl Add for &Node {
     type Output = Node;
 
     fn add(self, rhs: Self) -> Self::Output {
-        Node::from_comp(Box::new(AddComp::new(self.clone(), rhs.clone())), self.alloc())
+        Node::from_comp(Box::new(AddComp::new(self.clone(), rhs.clone())))
     }
 }
 
@@ -98,7 +98,7 @@ impl Mul for &Node {
     type Output = Node;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        Node::from_comp(Box::new(MulComp::new(self.clone(), rhs.clone())), self.alloc())
+        Node::from_comp(Box::new(MulComp::new(self.clone(), rhs.clone())))
     }
 }
 
@@ -106,7 +106,7 @@ impl Div for &Node {
     type Output = Node;
 
     fn div(self, rhs: Self) -> Self::Output {
-        Node::from_comp(Box::new(MulComp::new(self.clone(), rhs.powi(-1))), self.alloc())
+        Node::from_comp(Box::new(MulComp::new(self.clone(), rhs.powi(-1))))
     }
 }
 
@@ -140,9 +140,9 @@ mod tests {
             let d2: f64 = (rng.gen::<f64>() * 100. - 50.) * DIFF + v2 * (1. - DIFF);
 
             let node1 = Node::from_data(&[v1]);
-            let node2 = Node::from_data_and_node(&[v2], &node1);
-            let diff1 = Node::from_data_and_node(&[d1], &node1);
-            let diff2 = Node::from_data_and_node(&[d2], &node1);
+            let node2 = Node::from_data(&[v2]);
+            let diff1 = Node::from_data(&[d1]);
+            let diff2 = Node::from_data(&[d2]);
 
             let calc = func(node1.clone(), node2.clone());
             let calc_d1 = func(diff1.clone(), node2.clone());

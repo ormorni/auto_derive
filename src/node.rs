@@ -7,6 +7,7 @@ use std::ops::Deref;
 use std::rc::Rc;
 use fxhash::FxHashMap;
 use itertools::izip;
+use rand::Rng;
 
 type Map<K, V> = FxHashMap<K, V>;
 
@@ -20,14 +21,8 @@ struct NodeInternal {
     data: Vec<f64>,
     /// The computation used to calculate the node. Tracks the computation graph.
     comp: Box<dyn Computation>,
-    /// An allocator used to allocate new nodes of the computation graph.
-    alloc: Rc<RefCell<Vec<Node>>>,
     /// An ID, used to easily sort the nodes by order of creation.
     id: usize,
-}
-
-impl NodeInternal {
-
 }
 
 /// A struct proving a comfortable handle for the actual nodes.
@@ -51,44 +46,25 @@ impl Node {
         nodes.borrow_mut().push(Node::new(NodeInternal {
             data: data.to_vec(),
             comp: Box::new(NullComp {}),
-            alloc: nodes.clone(),
-            id: 0,
+            id: rand::thread_rng().gen::<usize>(),
         }));
         let res = &nodes.borrow()[0];
         res.clone()
     }
 
-    pub fn from_data_and_node(data: &[f64], node: &Node) -> Node {
-        let alloc = node.alloc();
-        let mut nodes = alloc.borrow_mut();
-        let len = nodes.len();
-        nodes.push(Node::new(NodeInternal {
-            data: data.to_vec(),
-            comp: Box::new(NullComp {}),
-            alloc: node.alloc(),
-            id: len,
-        }));
-        (*nodes)[len].clone()
-    }
-
     /// Initializes a node from a slice of floats and the computation used to calculate it.
     pub fn from_comp(
         comp: Box<dyn Computation>,
-        alloc: Rc<RefCell<Vec<Node>>>,
     ) -> Node {
-        let mut nodes = (*alloc).borrow_mut();
-        let len = nodes.len();
         let mut data = vec![0.; comp.len()];
         comp.apply(&mut data);
 
-        (*nodes).push(Node::new(NodeInternal {
+        Node::new(NodeInternal {
             data: data.to_vec(),
             comp,
-            alloc: alloc.clone(),
-            id: len,
-        }));
+            id: rand::thread_rng().gen::<usize>(),
+        })
 
-        (*nodes)[len].clone()
     }
 
     pub fn len(&self) -> usize {
@@ -103,8 +79,36 @@ impl Node {
         &self.node.comp
     }
 
-    pub fn alloc(&self) -> Rc<RefCell<Vec<Node>>> {
-        self.node.alloc.clone()
+    fn topological_sort(&self) -> Vec<Node> {
+        // Topologically sorting the required nodes of the computation graph.
+        let mut parent_count = Map::default();
+        let mut queue = vec![self.clone()];
+        let mut idx = 0;
+        parent_count.insert(self.clone(), 0);
+        while idx < queue.len() {
+            for node in queue[idx].comp().sources() {
+                if !parent_count.contains_key(&node) {
+                    parent_count.insert(node.clone(), 0);
+                    queue.push(node.clone());
+                }
+                *parent_count.get_mut(&node).unwrap() += 1;
+            }
+            idx += 1;
+        }
+
+        let mut res = vec![self.clone()];
+        let mut idx = 0;
+        while idx < res.len() {
+            for node in res[idx].comp().sources() {
+                *parent_count.get_mut(&node).unwrap() -= 1;
+                if *parent_count.get_mut(&node).unwrap() == 0 {
+                    res.push(node);
+                }
+            }
+            idx += 1;
+        }
+
+        res
     }
 
     /// Calculates the derivative of the target value with respect to all intermediates in the computation graph.
@@ -118,12 +122,9 @@ impl Node {
 
         // Initializing derivation data structures.
         let mut grads = Map::default();
-        grads.insert(self.clone(), Node::from_data_and_node(&[1.], self));
+        grads.insert(self.clone(), Node::from_data(&[1.]));
 
-        let mut stack = BinaryHeap::new();
-        stack.push(self.clone());
-
-        while let Some(node) = stack.pop() {
+        for node in self.topological_sort() {
             let node_grads = grads.get(&node).unwrap();
             let sources = node.comp().sources();
             let source_grads = node.comp().derivatives(node_grads.clone());
@@ -132,7 +133,6 @@ impl Node {
                 let old_grad = grads.get(source);
                 if old_grad.is_none() {
                     grads.insert(source.clone(), grad.clone());
-                    stack.push(source.clone());
                 } else {
                     let old_grad = old_grad.unwrap();
                     let new_grad = old_grad + grad;
@@ -153,18 +153,6 @@ impl PartialEq<Self> for NodeInternal {
     }
 }
 
-impl PartialOrd<Self> for NodeInternal {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for NodeInternal {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.id.cmp(&other.id)
-    }
-}
-
 impl Hash for NodeInternal {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state)
@@ -179,20 +167,62 @@ impl PartialEq<Self> for Node {
     }
 }
 
-impl PartialOrd<Self> for Node {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.node.deref().partial_cmp(&*other.node.deref())
-    }
-}
-
-impl Ord for Node {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.node.deref().cmp(other.node.deref())
-    }
-}
-
 impl Hash for Node {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.node.deref().hash(state)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use rand::prelude::StdRng;
+    use rand::{Rng, SeedableRng};
+    use crate::index_functions::IndexComp;
+    use crate::node::Node;
+
+    const SEED: [u8; 32] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31];
+    const DIFF: f64 = 1e-7;
+    const REL_ERROR: f64 = 1e-3;
+    const ABS_ERROR: f64 = 1e-10;
+
+    /// Asserts that two floating point numbers are close to each other.
+    /// Tests that the ratio of the difference and the average is smaller than the allowed value.
+    fn assert_close(a: f64, b: f64) {
+        if a != b {
+            let error = (a - b).abs() * 2. / (a.abs() + b.abs());
+            assert!((error < REL_ERROR) || (a - b).abs() < ABS_ERROR, "Values are not close: a={} b={} error={}", a, b, error);
+        }
+    }
+
+    #[test]
+    fn test_derivation() {
+        let mut rng = StdRng::from_seed(SEED);
+        for _ in 0..100 {
+            let v1: f64 = rng.gen::<f64>() * 100. - 50.;
+            let v2: f64 = (rng.gen::<f64>() * 100. - 50.) * DIFF + v1 * (1. - DIFF);
+
+            let root = Node::from_data(&[v1, v2]);
+
+            let mut arr = vec![];
+            for _ in 0..5 {
+                arr.push(root.clone());
+            }
+
+            for _ in 0..20 {
+                let p1: usize = rng.gen_range(0..arr.len());
+                let p2: usize = rng.gen_range(0..arr.len());
+                let op: usize = rng.gen_range(0..3);
+
+                match op {
+                    0 => {arr[p1] = &arr[p1] + &arr[p2]},
+                    1 => {arr[p1] = &arr[p1] * &arr[p2]},
+                    2 => {arr[p1] = &arr[p1] / &arr[p2]},
+                    _ => panic!()
+                }
+            }
+            let res = IndexComp::map_indices(&arr[0], [(0, 0)].iter().cloned(), 1);
+            let grad = res.derive().get(&root).unwrap().data()[0];
+            assert_close(arr[0].data()[1] - arr[0].data()[0], grad * (root.data()[1] - root.data()[0]));
+        }
     }
 }

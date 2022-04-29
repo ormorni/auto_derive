@@ -35,7 +35,7 @@ impl IndexComp {
     pub fn map_indices(node: &Node,
                               iter: impl Iterator<Item = (usize, usize)>,
                               length: usize) -> Node {
-        Node::from_comp(Box::new(IndexComp::new(node, iter, length)), node.alloc())
+        Node::from_comp(Box::new(IndexComp::new(node, iter, length)))
     }
 }
 
@@ -48,7 +48,7 @@ impl Computation for IndexComp {
         let src_len = self.node.len();
         let inverted_indices = self.indices.iter().map(|(i, j)| (*j, *i));
 
-        vec![Node::from_comp(Box::new(IndexComp::new(&res_grads, inverted_indices, src_len)), res_grads.alloc())]
+        vec![Node::from_comp(Box::new(IndexComp::new(&res_grads, inverted_indices, src_len)))]
     }
 
     fn apply(&self, res_array: &mut [f64]) {

@@ -180,7 +180,7 @@ impl Neg for &Node {
     type Output = Node;
 
     fn neg(self) -> Self::Output {
-        UnaryComp::apply(self.clone(), NegFunc {})
+        Node::from_comp(Box::new(UnaryComp::new(self.clone(), NegFunc {})), self.alloc())
     }
 }
 
@@ -233,15 +233,11 @@ pub struct UnaryComp<Op: DerivableOp> {
 }
 
 impl<Op: 'static + DerivableOp> UnaryComp<Op> {
-    fn apply(node: Node, op: Op) -> Node {
-        let data: Vec<f64> = node.data().iter().map(|f| op.apply(f)).collect();
-        let comp = Box::new(UnaryComp {
-            src: node.clone(),
-            op,
-        });
-        let res = Node::from_comp(&data, comp, node.alloc());
-        res
+    fn new(src: Node, op: Op) -> UnaryComp<Op> {
+        UnaryComp {src, op}
     }
+
+
 }
 
 impl<Op: DerivableOp + 'static> Computation for UnaryComp<Op> {
@@ -250,32 +246,42 @@ impl<Op: DerivableOp + 'static> Computation for UnaryComp<Op> {
     }
 
     fn derivatives(&self, res_grads: Node) -> Vec<Node> {
-        vec![&UnaryComp::apply(self.src.clone(), self.op.derivative()) * &res_grads]
+        vec![&Node::from_comp(Box::new(UnaryComp::new(self.src.clone(), self.op.derivative())), res_grads.alloc()) * &res_grads]
+    }
+
+    fn apply(&self, res_array: &mut [f64]) {
+        for i in 0..self.len() {
+            res_array[i] += self.op.apply(&self.src.data()[i]);
+        }
+    }
+
+    fn len(&self) -> usize {
+        self.src.len()
     }
 }
 
 /// An implementation of the standard f64 functions to floats.
 impl Node {
     pub fn sin(&self) -> Node {
-        UnaryComp::apply(self.clone(), SinFunc { sign_flip: false })
+        Node::from_comp(Box::new(UnaryComp::new(self.clone(), SinFunc { sign_flip: false })), self.alloc())
     }
     pub fn cos(&self) -> Node {
-        UnaryComp::apply(self.clone(), CosFunc { sign_flip: false })
+        Node::from_comp(Box::new(UnaryComp::new(self.clone(), CosFunc { sign_flip: false })), self.alloc())
     }
     pub fn exp(&self) -> Node {
-        UnaryComp::apply(self.clone(), ExpFunc {})
+        Node::from_comp(Box::new(UnaryComp::new(self.clone(), ExpFunc {})), self.alloc())
     }
     pub fn powi(&self, power: i32) -> Node {
-        UnaryComp::apply(self.clone(), PowiFunc { power, coef: 1 })
+        Node::from_comp(Box::new(UnaryComp::new(self.clone(), PowiFunc { power, coef: 1 })), self.alloc())
     }
     pub fn signum(&self) -> Node {
-        UnaryComp::apply(self.clone(), SignumFunc {})
+        Node::from_comp(Box::new(UnaryComp::new(self.clone(), SignumFunc {})), self.alloc())
     }
     pub fn abs(&self) -> Node {
-        UnaryComp::apply(self.clone(), AbsFunc {})
+        Node::from_comp(Box::new(UnaryComp::new(self.clone(), AbsFunc {})), self.alloc())
     }
     pub fn ln(&self) -> Node {
-        UnaryComp::apply(self.clone(), LnFunc {})
+        Node::from_comp(Box::new(UnaryComp::new(self.clone(), LnFunc {})), self.alloc())
     }
 }
 

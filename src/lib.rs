@@ -7,7 +7,7 @@ pub mod index_functions;
 #[cfg(test)]
 mod tests {
     use sloth::Lazy;
-    use crate::comps::IndexComp;
+    use crate::index_functions::IndexComp;
     use crate::node::Node;
 
     #[test]
@@ -24,7 +24,7 @@ mod tests {
 
         let mul_node = &root_1 * &root_2;
         let add_node = &mul_node + &root_1;
-        let res = IndexComp::apply(&add_node, (0..2).map(|i| (i, 0)), 1);
+        let res = IndexComp::map_indices(&add_node, (0..2).map(|i| (i, 0)), 1);
         let grads = res.derive();
         println!("res: {:?}", &res.data());
 

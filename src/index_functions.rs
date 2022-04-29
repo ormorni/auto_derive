@@ -19,27 +19,23 @@ impl IndexComp {
     /// Takes indices from the parent array into a child array.
     /// The iterator is an iterator of `(parent_idx, child_idx)`, specifying elements of the parent
     /// added to elements of the child array.
-    pub fn apply<Iter: Iterator<Item = (usize, usize)>>(
+    fn new(
         node: &Node,
-        iter: Iter,
+        iter: impl Iterator<Item = (usize, usize)>,
         length: usize,
-    ) -> Node {
+    ) -> IndexComp {
         // Making sure all indices are legal.
         let indices: Vec<(usize, usize)> = iter.collect();
         assert!(indices.iter().all(|idx| idx.0 < node.len()));
         assert!(indices.iter().all(|idx| idx.1 < length));
 
-        let mut data = vec![0.; length];
-        for (src, tar) in indices.iter() {
-            data[*tar] += node.data()[*src];
-        }
-        let comp = Box::new(IndexComp {
-            node: node.clone(),
-            indices,
-            length,
-        });
-        let node = Node::from_comp(&data, comp, node.alloc());
-        node
+        IndexComp {node: node.clone(), indices, length}
+    }
+
+    pub fn map_indices(node: &Node,
+                              iter: impl Iterator<Item = (usize, usize)>,
+                              length: usize) -> Node {
+        Node::from_comp(Box::new(IndexComp::new(node, iter, length)), node.alloc())
     }
 }
 
@@ -51,6 +47,17 @@ impl Computation for IndexComp {
     fn derivatives(&self, res_grads: Node) -> Vec<Node> {
         let src_len = self.node.len();
         let inverted_indices = self.indices.iter().map(|(i, j)| (*j, *i));
-        vec![IndexComp::apply(&res_grads, inverted_indices, src_len)]
+
+        vec![Node::from_comp(Box::new(IndexComp::new(&res_grads, inverted_indices, src_len)), res_grads.alloc())]
+    }
+
+    fn apply(&self, res_array: &mut [f64]) {
+        for (src, tar) in self.indices.iter() {
+            res_array[*tar] += self.node.data()[*src];
+        }
+    }
+
+    fn len(&self) -> usize {
+        self.length
     }
 }

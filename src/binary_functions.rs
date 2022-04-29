@@ -12,17 +12,9 @@ struct AddComp {
 }
 
 impl<'t> AddComp {
-    fn apply(p1: &Node, p2: &Node) -> Node {
+    fn new(p1: Node, p2: Node) -> AddComp {
         assert_eq!(p1.len(), p2.len());
-        let data: Vec<f64> = izip!(p1.data().iter(), p2.data().iter())
-            .map(|(v1, v2)| v1 + v2)
-            .collect();
-        let comp = Box::new(AddComp {
-            p1: p1.clone(),
-            p2: p2.clone(),
-        });
-        let node = Node::from_comp(&data, comp, p1.alloc());
-        node
+        AddComp {p1, p2}
     }
 }
 
@@ -34,13 +26,25 @@ impl Computation for AddComp {
     fn derivatives(&self, res_grads: Node) -> Vec<Node> {
         vec![res_grads.clone(), res_grads.clone()]
     }
+
+    fn apply(&self, res_array: &mut [f64]) {
+        assert_eq!(res_array.len(), self.len());
+        for i in 0..self.len() {
+            res_array[i] += self.p1.data()[i];
+            res_array[i] += self.p2.data()[i];
+        }
+    }
+
+    fn len(&self) -> usize {
+        self.p1.len()
+    }
 }
 
 impl Add for &Node {
     type Output = Node;
 
     fn add(self, rhs: Self) -> Self::Output {
-        AddComp::apply(self, rhs)
+        Node::from_comp(Box::new(AddComp::new(self.clone(), rhs.clone())), self.alloc())
     }
 }
 
@@ -60,17 +64,9 @@ struct MulComp {
 }
 
 impl<'t> MulComp {
-    fn apply(p1: &Node, p2: &Node) -> Node {
+    fn new(p1: Node, p2: Node) -> MulComp {
         assert_eq!(p1.len(), p2.len());
-        let data: Vec<f64> = izip!(p1.data().iter(), p2.data().iter())
-            .map(|(v1, v2)| v1 * v2)
-            .collect();
-        let comp = Box::new(MulComp {
-            p1: p1.clone(),
-            p2: p2.clone(),
-        });
-        let node = Node::from_comp(&data, comp, p1.alloc());
-        node
+        MulComp {p1, p2}
     }
 }
 
@@ -81,9 +77,20 @@ impl Computation for MulComp {
 
     fn derivatives(&self, res_grads: Node) -> Vec<Node> {
         vec![
-            MulComp::apply(&self.p2, &res_grads),
-            MulComp::apply(&self.p1, &res_grads),
+            &self.p2 * &res_grads,
+            &self.p1 * &res_grads,
         ]
+    }
+
+    fn apply(&self, res_array: &mut [f64]) {
+        assert_eq!(res_array.len(), self.len());
+        for i in 0..self.len() {
+            res_array[i] += self.p1.data()[i] * self.p2.data()[i];
+        }
+    }
+
+    fn len(&self) -> usize {
+        self.p1.len()
     }
 }
 
@@ -91,7 +98,7 @@ impl Mul for &Node {
     type Output = Node;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        MulComp::apply(self, rhs)
+        Node::from_comp(Box::new(MulComp::new(self.clone(), rhs.clone())), self.alloc())
     }
 }
 
@@ -99,7 +106,7 @@ impl Div for &Node {
     type Output = Node;
 
     fn div(self, rhs: Self) -> Self::Output {
-        MulComp::apply(self, &rhs.powi(-1))
+        Node::from_comp(Box::new(MulComp::new(self.clone(), rhs.powi(-1))), self.alloc())
     }
 }
 

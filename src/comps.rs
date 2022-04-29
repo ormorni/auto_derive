@@ -7,6 +7,10 @@ pub trait Computation {
     fn sources(&self) -> Vec<Node>;
     /// Calculates the derivatives of the computation by each of the parent nodes.
     fn derivatives(&self, res_grads: Node) -> Vec<Node>;
+    /// Calculates the function and adds the result to the given array.
+    fn apply(&self, res_array: &mut [f64]);
+    /// The length of the result array.
+    fn len(&self) -> usize;
 }
 
 /// A computation that does nothing.
@@ -21,6 +25,13 @@ impl Computation for NullComp {
 
     fn derivatives(&self, _: Node) -> Vec<Node> {
         vec![]
+    }
+
+    fn apply(&self, _: &mut [f64]) {}
+
+    /// The null computation can't generate a length, and can't reproduce its data.
+    fn len(&self) -> usize {
+        panic!()
     }
 }
 

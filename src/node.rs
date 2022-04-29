@@ -47,21 +47,39 @@ impl Node {
 
     /// Initializes a node from a slice of floats.
     pub fn from_data(data: &[f64]) -> Node {
-        Node::from_comp(data, Box::new(NullComp {}), Rc::new(RefCell::new(Vec::new())))
+        let nodes = Rc::new(RefCell::new(Vec::new()));
+        nodes.borrow_mut().push(Node::new(NodeInternal {
+            data: data.to_vec(),
+            comp: Box::new(NullComp {}),
+            alloc: nodes.clone(),
+            id: 0,
+        }));
+        let res = &nodes.borrow()[0];
+        res.clone()
     }
 
     pub fn from_data_and_node(data: &[f64], node: &Node) -> Node {
-        Node::from_comp(data, Box::new(NullComp {}), node.alloc().clone())
+        let alloc = node.alloc();
+        let mut nodes = alloc.borrow_mut();
+        let len = nodes.len();
+        nodes.push(Node::new(NodeInternal {
+            data: data.to_vec(),
+            comp: Box::new(NullComp {}),
+            alloc: node.alloc(),
+            id: len,
+        }));
+        (*nodes)[len].clone()
     }
 
     /// Initializes a node from a slice of floats and the computation used to calculate it.
     pub fn from_comp(
-        data: &[f64],
         comp: Box<dyn Computation>,
         alloc: Rc<RefCell<Vec<Node>>>,
     ) -> Node {
         let mut nodes = (*alloc).borrow_mut();
         let len = nodes.len();
+        let mut data = vec![0.; comp.len()];
+        comp.apply(&mut data);
 
         (*nodes).push(Node::new(NodeInternal {
             data: data.to_vec(),

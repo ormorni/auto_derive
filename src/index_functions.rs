@@ -1,3 +1,5 @@
+use std::iter::Sum;
+use std::ops::Index;
 use crate::comps::Computation;
 use crate::node::Node;
 
@@ -35,7 +37,7 @@ impl IndexComp {
     pub fn map_indices(node: &Node,
                               iter: impl Iterator<Item = (usize, usize)>,
                               length: usize) -> Node {
-        Node::from_comp(Box::new(IndexComp::new(node, iter, length)))
+        Node::from_comp(IndexComp::new(node, iter, length))
     }
 }
 
@@ -48,7 +50,7 @@ impl Computation for IndexComp {
         let src_len = self.node.len();
         let inverted_indices = self.indices.iter().map(|(i, j)| (*j, *i));
 
-        vec![Node::from_comp(Box::new(IndexComp::new(&res_grads, inverted_indices, src_len)))]
+        vec![Node::from_comp(IndexComp::new(&res_grads, inverted_indices, src_len))]
     }
 
     fn apply(&self, res_array: &mut [f64]) {
@@ -59,5 +61,11 @@ impl Computation for IndexComp {
 
     fn len(&self) -> usize {
         self.length
+    }
+}
+
+impl Node {
+    pub fn index(&self, idx: usize) -> Node {
+        IndexComp::map_indices(self, [(idx, 0)].iter().cloned(), 1)
     }
 }

@@ -44,7 +44,7 @@ impl Add for &Node {
     type Output = Node;
 
     fn add(self, rhs: Self) -> Self::Output {
-        Node::from_comp(Box::new(AddComp::new(self.clone(), rhs.clone())))
+        Node::from_comp(AddComp::new(self.clone(), rhs.clone()))
     }
 }
 
@@ -98,7 +98,7 @@ impl Mul for &Node {
     type Output = Node;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        Node::from_comp(Box::new(MulComp::new(self.clone(), rhs.clone())))
+        Node::from_comp(MulComp::new(self.clone(), rhs.clone()))
     }
 }
 
@@ -106,7 +106,7 @@ impl Div for &Node {
     type Output = Node;
 
     fn div(self, rhs: Self) -> Self::Output {
-        Node::from_comp(Box::new(MulComp::new(self.clone(), rhs.powi(-1))))
+        Node::from_comp(MulComp::new(self.clone(), rhs.powi(-1)))
     }
 }
 

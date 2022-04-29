@@ -48,14 +48,14 @@ impl Node {
 
     /// Initializes a node from a slice of floats and the computation used to calculate it.
     pub fn from_comp(
-        comp: Box<dyn Computation>,
+        comp: impl Computation + 'static,
     ) -> Node {
         let mut data = vec![0.; comp.len()];
         comp.apply(&mut data);
 
         Node::new(NodeInternal {
             data: data.to_vec(),
-            comp,
+            comp: Box::new(comp),
             id: rand::thread_rng().gen::<usize>(),
         })
 
@@ -120,7 +120,7 @@ impl Node {
             self.len()
         );
 
-        // Initializing derivation data structures.
+        // Initializing the derivative map.
         let mut grads = Map::default();
         grads.insert(self.clone(), Node::from_data(&[1.]));
 
@@ -221,7 +221,7 @@ mod tests {
                     _ => panic!()
                 }
             }
-            let res = IndexComp::map_indices(&arr[0], [(0, 0)].iter().cloned(), 1);
+            let res = arr[0].index(0);
             let grad = res.derive().get(&root).unwrap().data()[0];
             assert_close(arr[0].data()[1] - arr[0].data()[0], grad * (root.data()[1] - root.data()[0]));
         }

@@ -180,7 +180,7 @@ impl Neg for &Node {
     type Output = Node;
 
     fn neg(self) -> Self::Output {
-        Node::from_comp(Box::new(UnaryComp::new(self.clone(), NegFunc {})))
+        Node::from_comp(UnaryComp::new(self.clone(), NegFunc {}))
     }
 }
 
@@ -246,7 +246,7 @@ impl<Op: DerivableOp + 'static> Computation for UnaryComp<Op> {
     }
 
     fn derivatives(&self, res_grads: Node) -> Vec<Node> {
-        vec![&Node::from_comp(Box::new(UnaryComp::new(self.src.clone(), self.op.derivative()))) * &res_grads]
+        vec![&Node::from_comp(UnaryComp::new(self.src.clone(), self.op.derivative())) * &res_grads]
     }
 
     fn apply(&self, res_array: &mut [f64]) {
@@ -263,25 +263,25 @@ impl<Op: DerivableOp + 'static> Computation for UnaryComp<Op> {
 /// An implementation of the standard f64 functions to floats.
 impl Node {
     pub fn sin(&self) -> Node {
-        Node::from_comp(Box::new(UnaryComp::new(self.clone(), SinFunc { sign_flip: false })))
+        Node::from_comp(UnaryComp::new(self.clone(), SinFunc { sign_flip: false }))
     }
     pub fn cos(&self) -> Node {
-        Node::from_comp(Box::new(UnaryComp::new(self.clone(), CosFunc { sign_flip: false })))
+        Node::from_comp(UnaryComp::new(self.clone(), CosFunc { sign_flip: false }))
     }
     pub fn exp(&self) -> Node {
-        Node::from_comp(Box::new(UnaryComp::new(self.clone(), ExpFunc {})))
+        Node::from_comp(UnaryComp::new(self.clone(), ExpFunc {}))
     }
     pub fn powi(&self, power: i32) -> Node {
-        Node::from_comp(Box::new(UnaryComp::new(self.clone(), PowiFunc { power, coef: 1 })))
+        Node::from_comp(UnaryComp::new(self.clone(), PowiFunc { power, coef: 1 }))
     }
     pub fn signum(&self) -> Node {
-        Node::from_comp(Box::new(UnaryComp::new(self.clone(), SignumFunc {})))
+        Node::from_comp(UnaryComp::new(self.clone(), SignumFunc {}))
     }
     pub fn abs(&self) -> Node {
-        Node::from_comp(Box::new(UnaryComp::new(self.clone(), AbsFunc {})))
+        Node::from_comp(UnaryComp::new(self.clone(), AbsFunc {}))
     }
     pub fn ln(&self) -> Node {
-        Node::from_comp(Box::new(UnaryComp::new(self.clone(), LnFunc {})))
+        Node::from_comp(UnaryComp::new(self.clone(), LnFunc {}))
     }
 }
 

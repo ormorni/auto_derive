@@ -4,7 +4,7 @@ use std::ops::Neg;
 /// the trait DerivableOp allows easy definition of derivable functions,
 /// which can then be used with UnaryComp.
 use crate::comps::Computation;
-use crate::node::{Node, NodeRef};
+use crate::node::Node;
 
 /// A trait for derivable functions.
 /// Used to more easily implement pointwise functions on arrays.
@@ -176,8 +176,8 @@ impl DerivableOp for NegFunc {
     }
 }
 
-impl Neg for &NodeRef {
-    type Output = NodeRef;
+impl Neg for &Node {
+    type Output = Node;
 
     fn neg(self) -> Self::Output {
         UnaryComp::apply(self.clone(), NegFunc {})
@@ -227,54 +227,54 @@ impl DerivableOp for CosFunc {
 /// A computation handling generic differentiable functions applied pointwise to arrays.
 pub struct UnaryComp<Op: DerivableOp> {
     /// The parent node.
-    src: NodeRef,
+    src: Node,
     /// The function applied to the array.
     op: Op,
 }
 
 impl<Op: 'static + DerivableOp> UnaryComp<Op> {
-    fn apply(node: NodeRef, op: Op) -> NodeRef {
-        let data: Vec<f64> = node.data.iter().map(|f| op.apply(f)).collect();
+    fn apply(node: Node, op: Op) -> Node {
+        let data: Vec<f64> = node.data().iter().map(|f| op.apply(f)).collect();
         let comp = Box::new(UnaryComp {
             src: node.clone(),
             op,
         });
-        let res = Node::from_comp(&data, comp, node.alloc.clone());
+        let res = Node::from_comp(&data, comp, node.alloc());
         res
     }
 }
 
 impl<Op: DerivableOp + 'static> Computation for UnaryComp<Op> {
-    fn sources(&self) -> Vec<NodeRef> {
+    fn sources(&self) -> Vec<Node> {
         vec![self.src.clone()]
     }
 
-    fn derivatives(&self, res_grads: NodeRef) -> Vec<NodeRef> {
+    fn derivatives(&self, res_grads: Node) -> Vec<Node> {
         vec![&UnaryComp::apply(self.src.clone(), self.op.derivative()) * &res_grads]
     }
 }
 
 /// An implementation of the standard f64 functions to floats.
-impl NodeRef {
-    pub fn sin(&self) -> NodeRef {
+impl Node {
+    pub fn sin(&self) -> Node {
         UnaryComp::apply(self.clone(), SinFunc { sign_flip: false })
     }
-    pub fn cos(&self) -> NodeRef {
+    pub fn cos(&self) -> Node {
         UnaryComp::apply(self.clone(), CosFunc { sign_flip: false })
     }
-    pub fn exp(&self) -> NodeRef {
+    pub fn exp(&self) -> Node {
         UnaryComp::apply(self.clone(), ExpFunc {})
     }
-    pub fn powi(&self, power: i32) -> NodeRef {
+    pub fn powi(&self, power: i32) -> Node {
         UnaryComp::apply(self.clone(), PowiFunc { power, coef: 1 })
     }
-    pub fn signum(&self) -> NodeRef {
+    pub fn signum(&self) -> Node {
         UnaryComp::apply(self.clone(), SignumFunc {})
     }
-    pub fn abs(&self) -> NodeRef {
+    pub fn abs(&self) -> Node {
         UnaryComp::apply(self.clone(), AbsFunc {})
     }
-    pub fn ln(&self) -> NodeRef {
+    pub fn ln(&self) -> Node {
         UnaryComp::apply(self.clone(), LnFunc {})
     }
 }
@@ -283,10 +283,9 @@ impl NodeRef {
 #[cfg(test)]
 mod tests {
     use std::ops::{Deref, Neg};
-    use crate::node::{Node, NodeRef};
+    use crate::node::Node;
     use rand::prelude::{StdRng, Rng};
     use rand::SeedableRng;
-    use crate::context::Context;
 
     /// A seed for the RNG used to generate test cases.
     const SEED: [u8; 32] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31];
@@ -305,22 +304,21 @@ mod tests {
     }
 
     /// Tests a generic unary function.
-    fn test_unary(func: impl Fn(NodeRef) -> NodeRef) {
+    fn test_unary(func: impl Fn(Node) -> Node) {
         let mut rng = StdRng::from_seed(SEED);
         for _ in 0..100 {
             let v1: f64 = rng.gen::<f64>() * 100. - 50.;
             let v2: f64 = (rng.gen::<f64>() * 100. - 50.) * DIFF + v1 * (1. - DIFF);
 
-            let ctx = Context::new();
-            let node1 = Node::from_data(&[v1], ctx.nodes.clone());
-            let node2 = Node::from_data(&[v2], ctx.nodes.clone());
+            let node1 = Node::from_data(&[v1]);
+            let node2 = Node::from_data_and_node(&[v2], &node1);
 
             let mapped_1 = func(node1.clone());
             let mapped_2 = func(node2.clone());
 
-            let grad = ctx.derive(mapped_1.clone()).get(&node1).unwrap().data[0];
+            let grad = mapped_1.derive().get(&node1).unwrap().data()[0];
 
-            assert_close(grad * (v2 - v1), mapped_2.data[0] - mapped_1.data[0]);
+            assert_close(grad * (v2 - v1), mapped_2.data()[0] - mapped_1.data()[0]);
         }
     }
 
@@ -346,7 +344,7 @@ mod tests {
     }
     #[test]
     fn test_ln() {
-        test_unary(|node| if node.data[0] > 0. {node.ln()} else {node});
+        test_unary(|node| if node.data()[0] > 0. {node.ln()} else {node});
     }
     #[test]
     fn test_pow() {

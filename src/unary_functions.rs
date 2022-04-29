@@ -289,7 +289,7 @@ impl Node {
 /// Tests for the unary functions.
 #[cfg(test)]
 mod tests {
-    use std::ops::{Deref, Neg};
+    use std::ops::Neg;
     use crate::node::Node;
     use rand::prelude::{StdRng, Rng};
     use rand::SeedableRng;

@@ -1,4 +1,3 @@
-use itertools::izip;
 use std::ops::{Add, Div, Mul, Sub};
 
 use crate::comps::Computation;

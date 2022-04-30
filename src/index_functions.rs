@@ -68,6 +68,7 @@ impl Node {
     }
 }
 
+/// A computation that handles summing all elements in an array.
 #[derive(Clone)]
 struct SumComp {
     src: Node,
@@ -102,6 +103,9 @@ impl Node {
 }
 
 
+/// A computation that handles expanding a scalar to an array.
+/// This operation can be done with IndexComp, but this should be both lighter, since it doesn't require
+/// the index mapping array, and easier to use.
 #[derive(Clone)]
 pub struct ExpandComp {
     src: Node,

@@ -66,6 +66,17 @@ impl DArray {
     pub fn index(&self, idx: usize) -> DArray {
         IndexComp::map_indices(self, [(idx, 0)].iter().cloned(), 1)
     }
+
+    /// Returns the maximal element of the array.
+    pub fn max(&self) -> DArray {
+        let mx_idx = self.data().iter().enumerate().reduce(|p1, p2| if p1.1 > p2.1 {p1} else {p2}).unwrap().0;
+        self.index(mx_idx)
+    }
+    /// Returns the minimal element of the array.
+    pub fn min(&self) -> DArray {
+        let mn_idx = self.data().iter().enumerate().reduce(|p1, p2| if p1.1 < p2.1 {p1} else {p2}).unwrap().0;
+        self.index(mn_idx)
+    }
 }
 
 /// A computation that handles summing all elements in an array.
@@ -181,6 +192,36 @@ mod tests {
             assert!(array_sum.is_scalar());
             assert_close(arr_sum, array_sum.data()[0]);
             array_sum.derive().get(&array_arr).unwrap().data().iter().for_each(|f|assert_close(*f, 1.))
+        }
+    }
+
+    #[test]
+    fn test_max() {
+        let mut rng = StdRng::from_seed(SEED);
+
+        for _ in 0..100 {
+            let arr: Vec<f64> = (0..10).map(|_|rng.gen::<f64>()).collect();
+            let arr_max = arr.iter().cloned().reduce(|f1, f2|f1.max(f2)).unwrap();
+            let array_arr = DArray::from(arr);
+            let array_max = array_arr.max();
+
+            assert!(array_max.is_scalar());
+            assert_close(arr_max, array_max.data()[0]);
+        }
+    }
+
+    #[test]
+    fn test_min() {
+        let mut rng = StdRng::from_seed(SEED);
+
+        for _ in 0..100 {
+            let arr: Vec<f64> = (0..10).map(|_|rng.gen::<f64>()).collect();
+            let arr_min = arr.iter().cloned().reduce(|f1, f2|f1.min(f2)).unwrap();
+            let array_arr = DArray::from(arr);
+            let array_min = array_arr.min();
+
+            assert!(array_min.is_scalar());
+            assert_close(arr_min, array_min.data()[0]);
         }
     }
 

@@ -1,7 +1,7 @@
 use crate::computation::{Computation, FromDataComp};
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
-use std::rc::Rc;
+use std::sync::Arc;
 use fxhash::FxHashMap;
 use itertools::izip;
 use rand::Rng;
@@ -25,7 +25,7 @@ struct DArrayInternal {
 /// A struct proving a comfortable handle for the actual arrays.
 #[derive(Clone)]
 pub struct DArray {
-    internal: Rc<DArrayInternal>,
+    internal: Arc<DArrayInternal>,
 }
 
 impl DArray {
@@ -33,7 +33,7 @@ impl DArray {
     /// Used only in the array's constructors.
     fn new(array: DArrayInternal) -> Self {
         DArray {
-            internal: Rc::new(array),
+            internal: Arc::new(array),
         }
     }
 

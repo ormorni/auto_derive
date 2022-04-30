@@ -21,8 +21,8 @@ mod tests {
 
     #[test]
     fn main() {
-        let root_1 = Node::from_data(&[-6., 1.]);
-        let root_2 = Node::from_data(&[4., 2.]);
+        let root_1 = Node::from(vec![-6., 1.]);
+        let root_2 = Node::from(vec![4., 2.]);
         let mul_node = &root_1 * &root_2;
         let add_node = &mul_node + &root_1;
         let res = IndexComp::map_indices(&add_node, (0..2).map(|i| (i, 0)), 1);

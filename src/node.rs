@@ -39,12 +39,12 @@ impl Node {
     }
 
     /// Initializes a node from a slice of floats.
-    pub fn from_data(data: &[f64]) -> Node {
+    fn from_data(data: &[f64]) -> Node {
         Node::from_comp(FromDataComp {data: data.to_vec()})
     }
 
     /// Initializes a node from a slice of floats and the computation used to calculate it.
-    pub fn from_comp(
+    fn from_comp(
         comp: impl Computation + 'static + Clone,
     ) -> Node {
         let ln = comp.len();
@@ -144,6 +144,11 @@ impl Node {
 
         grads
     }
+
+    /// Returns if the node represents a single item.
+    pub fn is_scalar(&self) -> bool {
+        self.len() == 1
+    }
 }
 
 impl Eq for NodeInternal {}
@@ -173,6 +178,25 @@ impl Hash for Node {
         self.node.deref().hash(state)
     }
 }
+
+impl From<f64> for Node {
+    fn from(src: f64) -> Self {
+        Node::from_data(&[src])
+    }
+}
+
+impl From<Vec<f64>> for Node {
+    fn from(src: Vec<f64>) -> Self {
+        Node::from_data(src.as_slice())
+    }
+}
+
+impl <Comp: Computation + Clone + 'static> From<Comp> for Node {
+    fn from(src: Comp) -> Self {
+        Node::from_comp(src)
+    }
+}
+
 
 #[cfg(test)]
 mod tests {

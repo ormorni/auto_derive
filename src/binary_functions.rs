@@ -1,6 +1,7 @@
 use std::ops::{Add, Div, Mul, Sub};
 
 use crate::comps::Computation;
+use crate::index_functions::expand_node;
 use crate::node::Node;
 
 /// A computation handling pointwise addition of two nodes.
@@ -12,6 +13,9 @@ struct AddComp {
 
 impl<'t> AddComp {
     fn new(p1: Node, p2: Node) -> AddComp {
+        let p1 = expand_node(p1, &p2);
+        let p2 = expand_node(p2, &p1);
+
         assert_eq!(p1.len(), p2.len());
         AddComp {p1, p2}
     }
@@ -41,7 +45,7 @@ impl Add for &Node {
     type Output = Node;
 
     fn add(self, rhs: Self) -> Self::Output {
-        Node::from_comp(AddComp::new(self.clone(), rhs.clone()))
+        Node::from(AddComp::new(self.clone(), rhs.clone()))
     }
 }
 
@@ -62,6 +66,8 @@ struct MulComp {
 
 impl<'t> MulComp {
     fn new(p1: Node, p2: Node) -> MulComp {
+        let p1 = expand_node(p1, &p2);
+        let p2 = expand_node(p2, &p1);
         assert_eq!(p1.len(), p2.len());
         MulComp {p1, p2}
     }
@@ -95,7 +101,7 @@ impl Mul for &Node {
     type Output = Node;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        Node::from_comp(MulComp::new(self.clone(), rhs.clone()))
+        Node::from(MulComp::new(self.clone(), rhs.clone()))
     }
 }
 
@@ -103,7 +109,7 @@ impl Div for &Node {
     type Output = Node;
 
     fn div(self, rhs: Self) -> Self::Output {
-        Node::from_comp(MulComp::new(self.clone(), rhs.powi(-1)))
+        Node::from(MulComp::new(self.clone(), rhs.powi(-1)))
     }
 }
 
@@ -136,10 +142,10 @@ mod tests {
             let d1: f64 = (rng.gen::<f64>() * 100. - 50.) * DIFF + v1 * (1. - DIFF);
             let d2: f64 = (rng.gen::<f64>() * 100. - 50.) * DIFF + v2 * (1. - DIFF);
 
-            let node1 = Node::from_data(&[v1]);
-            let node2 = Node::from_data(&[v2]);
-            let diff1 = Node::from_data(&[d1]);
-            let diff2 = Node::from_data(&[d2]);
+            let node1 = Node::from(v1);
+            let node2 = Node::from(v2);
+            let diff1 = Node::from(d1);
+            let diff2 = Node::from(d2);
 
             let calc = func(node1.clone(), node2.clone());
             let calc_d1 = func(diff1.clone(), node2.clone());

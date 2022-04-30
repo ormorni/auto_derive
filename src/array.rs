@@ -44,7 +44,7 @@ impl DArray {
 
     /// Initializes an array from a slice of floats and the computation used to calculate it.
     fn from_comp(
-        comp: impl Computation + 'static + Clone,
+        comp: impl Computation + Clone,
     ) -> DArray {
         let ln = comp.len();
         let cloned_comp = comp.clone();
@@ -190,7 +190,7 @@ impl From<Vec<f64>> for DArray {
     }
 }
 
-impl <Comp: Computation + Clone + 'static> From<Comp> for DArray {
+impl <Comp: Computation + Clone> From<Comp> for DArray {
     fn from(src: Comp) -> Self {
         DArray::from_comp(src)
     }

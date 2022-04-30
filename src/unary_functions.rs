@@ -8,7 +8,7 @@ use crate::array::DArray;
 
 /// A trait for derivable functions.
 /// Used to more easily implement pointwise functions on arrays.
-pub trait DerivableOp : Clone {
+pub trait DerivableOp : Clone + 'static {
     type Derivative: DerivableOp;
 
     /// Applies the function to a float.
@@ -233,7 +233,7 @@ pub struct UnaryComp<Op: DerivableOp> {
     op: Op,
 }
 
-impl<Op: 'static + DerivableOp> UnaryComp<Op> {
+impl<Op: DerivableOp> UnaryComp<Op> {
     fn new(src: DArray, op: Op) -> UnaryComp<Op> {
         UnaryComp {src, op}
     }
@@ -241,7 +241,7 @@ impl<Op: 'static + DerivableOp> UnaryComp<Op> {
 
 }
 
-impl<Op: DerivableOp + 'static> Computation for UnaryComp<Op> {
+impl<Op: DerivableOp> Computation for UnaryComp<Op> {
     fn sources(&self) -> Vec<DArray> {
         vec![self.src.clone()]
     }

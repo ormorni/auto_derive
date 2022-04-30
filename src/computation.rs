@@ -2,7 +2,7 @@ use crate::array::DArray;
 
 /// A trait representing the computations which were used to generate arrays in the computation graph.
 /// Used to perform the backward propagation.
-pub trait Computation {
+pub trait Computation : 'static {
     /// Returns a vector of the parent arrays involved in the computation.
     fn sources(&self) -> Vec<DArray>;
     /// Calculates the derivatives of the computation by each of the parent arrays.

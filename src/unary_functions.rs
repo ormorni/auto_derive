@@ -1,10 +1,10 @@
 use std::ops::Neg;
-/// Implementation of unary functions for the node.
+/// Implementation of unary functions for the array.
 /// To make implementing unary functions simpler,
 /// the trait DerivableOp allows easy definition of derivable functions,
 /// which can then be used with UnaryComp.
-use crate::comps::Computation;
-use crate::node::Node;
+use crate::computation::Computation;
+use crate::array::DArray;
 
 /// A trait for derivable functions.
 /// Used to more easily implement pointwise functions on arrays.
@@ -176,11 +176,11 @@ impl DerivableOp for NegFunc {
     }
 }
 
-impl Neg for &Node {
-    type Output = Node;
+impl Neg for &DArray {
+    type Output = DArray;
 
     fn neg(self) -> Self::Output {
-        Node::from(UnaryComp::new(self.clone(), NegFunc {}))
+        DArray::from(UnaryComp::new(self.clone(), NegFunc {}))
     }
 }
 
@@ -227,14 +227,14 @@ impl DerivableOp for CosFunc {
 /// A computation handling generic differentiable functions applied pointwise to arrays.
 #[derive(Clone)]
 pub struct UnaryComp<Op: DerivableOp> {
-    /// The parent node.
-    src: Node,
+    /// The parent array.
+    src: DArray,
     /// The function applied to the array.
     op: Op,
 }
 
 impl<Op: 'static + DerivableOp> UnaryComp<Op> {
-    fn new(src: Node, op: Op) -> UnaryComp<Op> {
+    fn new(src: DArray, op: Op) -> UnaryComp<Op> {
         UnaryComp {src, op}
     }
 
@@ -242,12 +242,12 @@ impl<Op: 'static + DerivableOp> UnaryComp<Op> {
 }
 
 impl<Op: DerivableOp + 'static> Computation for UnaryComp<Op> {
-    fn sources(&self) -> Vec<Node> {
+    fn sources(&self) -> Vec<DArray> {
         vec![self.src.clone()]
     }
 
-    fn derivatives(&self, res_grads: Node) -> Vec<Node> {
-        vec![&Node::from(UnaryComp::new(self.src.clone(), self.op.derivative())) * &res_grads]
+    fn derivatives(&self, res_grads: DArray) -> Vec<DArray> {
+        vec![&DArray::from(UnaryComp::new(self.src.clone(), self.op.derivative())) * &res_grads]
     }
 
     fn apply(&self, res_array: &mut [f64]) {
@@ -262,27 +262,27 @@ impl<Op: DerivableOp + 'static> Computation for UnaryComp<Op> {
 }
 
 /// An implementation of the standard f64 functions to floats.
-impl Node {
-    pub fn sin(&self) -> Node {
-        Node::from(UnaryComp::new(self.clone(), SinFunc { sign_flip: false }))
+impl DArray {
+    pub fn sin(&self) -> DArray {
+        DArray::from(UnaryComp::new(self.clone(), SinFunc { sign_flip: false }))
     }
-    pub fn cos(&self) -> Node {
-        Node::from(UnaryComp::new(self.clone(), CosFunc { sign_flip: false }))
+    pub fn cos(&self) -> DArray {
+        DArray::from(UnaryComp::new(self.clone(), CosFunc { sign_flip: false }))
     }
-    pub fn exp(&self) -> Node {
-        Node::from(UnaryComp::new(self.clone(), ExpFunc {}))
+    pub fn exp(&self) -> DArray {
+        DArray::from(UnaryComp::new(self.clone(), ExpFunc {}))
     }
-    pub fn powi(&self, power: i32) -> Node {
-        Node::from(UnaryComp::new(self.clone(), PowiFunc { power, coef: 1 }))
+    pub fn powi(&self, power: i32) -> DArray {
+        DArray::from(UnaryComp::new(self.clone(), PowiFunc { power, coef: 1 }))
     }
-    pub fn signum(&self) -> Node {
-        Node::from(UnaryComp::new(self.clone(), SignumFunc {}))
+    pub fn signum(&self) -> DArray {
+        DArray::from(UnaryComp::new(self.clone(), SignumFunc {}))
     }
-    pub fn abs(&self) -> Node {
-        Node::from(UnaryComp::new(self.clone(), AbsFunc {}))
+    pub fn abs(&self) -> DArray {
+        DArray::from(UnaryComp::new(self.clone(), AbsFunc {}))
     }
-    pub fn ln(&self) -> Node {
-        Node::from(UnaryComp::new(self.clone(), LnFunc {}))
+    pub fn ln(&self) -> DArray {
+        DArray::from(UnaryComp::new(self.clone(), LnFunc {}))
     }
 }
 
@@ -290,7 +290,7 @@ impl Node {
 #[cfg(test)]
 mod tests {
     use std::ops::Neg;
-    use crate::node::Node;
+    use crate::array::DArray;
     use rand::prelude::{StdRng, Rng};
     use rand::SeedableRng;
 
@@ -311,19 +311,19 @@ mod tests {
     }
 
     /// Tests a generic unary function.
-    fn test_unary(func: impl Fn(Node) -> Node) {
+    fn test_unary(func: impl Fn(DArray) -> DArray) {
         let mut rng = StdRng::from_seed(SEED);
         for _ in 0..100 {
             let v1: f64 = rng.gen::<f64>() * 100. - 50.;
             let v2: f64 = (rng.gen::<f64>() * 100. - 50.) * DIFF + v1 * (1. - DIFF);
 
-            let node1 = Node::from(v1);
-            let node2 = Node::from(v2);
+            let array1 = DArray::from(v1);
+            let array2 = DArray::from(v2);
 
-            let mapped_1 = func(node1.clone());
-            let mapped_2 = func(node2.clone());
+            let mapped_1 = func(array1.clone());
+            let mapped_2 = func(array2.clone());
 
-            let grad = mapped_1.derive().get(&node1).unwrap().data()[0];
+            let grad = mapped_1.derive().get(&array1).unwrap().data()[0];
 
             assert_close(grad * (v2 - v1), mapped_2.data()[0] - mapped_1.data()[0]);
         }
@@ -331,36 +331,36 @@ mod tests {
 
     #[test]
     fn test_exp() {
-        test_unary(|node|node.exp());
+        test_unary(|array|array.exp());
     }
     #[test]
     fn test_cos() {
-        test_unary(|node|node.cos());
+        test_unary(|array|array.cos());
     }
     #[test]
     fn test_sin() {
-        test_unary(|node|node.sin());
+        test_unary(|array|array.sin());
     }
     #[test]
     fn test_signum() {
-        test_unary(|node|node.signum());
+        test_unary(|array|array.signum());
     }
     #[test]
     fn test_abs() {
-        test_unary(|node|node.abs());
+        test_unary(|array|array.abs());
     }
     #[test]
     fn test_ln() {
-        test_unary(|node| if node.data()[0] > 0. {node.ln()} else {node});
+        test_unary(|array| if array.data()[0] > 0. {array.ln()} else {array});
     }
     #[test]
     fn test_pow() {
         for i in -5..5 {
-            test_unary(|node|node.powi(i));
+            test_unary(|array|array.powi(i));
         }
     }
     #[test]
     fn test_neg() {
-        test_unary(|node| (&node).neg());
+        test_unary(|array| (&array).neg());
     }
 }

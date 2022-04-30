@@ -1,4 +1,4 @@
-use crate::comps::{Computation, FromDataComp};
+use crate::computation::{Computation, FromDataComp};
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::rc::Rc;
@@ -13,44 +13,43 @@ type Map<K, V> = FxHashMap<K, V>;
 /// A wrapper over a float array, which dynamically creates a computation graph.
 /// The computation graph can then be used to automatically calculate derivatives of complex functions
 /// using backward propagation.
-/// It is never used directly, and only used inside a NodeRef.
-struct NodeInternal {
-    /// The data stored by the node.
+struct DArrayInternal {
+    /// The data stored by the array.
     data: Lazy<Vec<f64>, Box<dyn FnOnce() -> Vec<f64>>>,
-    /// The computation used to calculate the node. Tracks the computation graph.
+    /// The computation used to calculate the array. Tracks the computation graph.
     comp: Box<dyn Computation>,
-    /// An ID, used to easily sort the nodes by order of creation.
+    /// An ID, used to easily sort the arrays by order of creation.
     id: usize,
 }
 
-/// A struct proving a comfortable handle for the actual nodes.
+/// A struct proving a comfortable handle for the actual arrays.
 #[derive(Clone)]
-pub struct Node {
-    node: Rc<NodeInternal>,
+pub struct DArray {
+    internal: Rc<DArrayInternal>,
 }
 
-impl Node {
-    /// A constructor for node references from a raw node.
-    /// Used only in the Node's constructors.
-    fn new(node: NodeInternal) -> Self {
-        Node {
-            node: Rc::new(node),
+impl DArray {
+    /// A constructor for array references from a raw array.
+    /// Used only in the array's constructors.
+    fn new(array: DArrayInternal) -> Self {
+        DArray {
+            internal: Rc::new(array),
         }
     }
 
-    /// Initializes a node from a slice of floats.
-    fn from_data(data: &[f64]) -> Node {
-        Node::from_comp(FromDataComp {data: data.to_vec()})
+    /// Initializes an array from a slice of floats.
+    fn from_data(data: &[f64]) -> DArray {
+        DArray::from_comp(FromDataComp {data: data.to_vec()})
     }
 
-    /// Initializes a node from a slice of floats and the computation used to calculate it.
+    /// Initializes an array from a slice of floats and the computation used to calculate it.
     fn from_comp(
         comp: impl Computation + 'static + Clone,
-    ) -> Node {
+    ) -> DArray {
         let ln = comp.len();
         let cloned_comp = comp.clone();
 
-        Node::new(NodeInternal {
+        DArray::new(DArrayInternal {
             data: Lazy::new(Box::new(move || {
                 let mut data = vec![0.; ln];
                 cloned_comp.apply(&mut data);
@@ -61,38 +60,38 @@ impl Node {
         })
 
     }
-    /// Returns the length of the array held by the node.
+    /// Returns the length of the array held by the array.
     pub fn len(&self) -> usize {
-        self.node.data.len()
+        self.internal.data.len()
     }
 
-    /// Returns a reference to the node's data.
+    /// Returns a reference to the array's data.
     pub fn data(&self) -> &Vec<f64> {
-        &self.node.data
+        &self.internal.data
     }
 
-    /// Returns a reference to the node's computation.
+    /// Returns a reference to the array's computation.
     pub fn comp(&self) -> &Box<dyn Computation> {
-        &self.node.comp
+        &self.internal.comp
     }
 
-    /// Performs topological sorting of the node.
-    /// To ensure correct derivations, the backpropagation has to be called on all nodes using a
-    /// given node before being called on it. The topological sorting ensures that the calls to the backpropagation
+    /// Performs topological sorting of the array.
+    /// To ensure correct derivations, the backpropagation has to be called on all arrays using a
+    /// given array before being called on it. The topological sorting ensures that the calls to the backpropagation
     /// satisfies this requirement.
-    fn topological_sort(&self) -> Vec<Node> {
-        // Topologically sorting the required nodes of the computation graph.
+    fn topological_sort(&self) -> Vec<DArray> {
+        // Topologically sorting the required arrays of the computation graph.
         let mut parent_count = Map::default();
         let mut queue = vec![self.clone()];
         let mut idx = 0;
         parent_count.insert(self.clone(), 0);
         while idx < queue.len() {
-            for node in queue[idx].comp().sources() {
-                if !parent_count.contains_key(&node) {
-                    parent_count.insert(node.clone(), 0);
-                    queue.push(node.clone());
+            for array in queue[idx].comp().sources() {
+                if !parent_count.contains_key(&array) {
+                    parent_count.insert(array.clone(), 0);
+                    queue.push(array.clone());
                 }
-                *parent_count.get_mut(&node).unwrap() += 1;
+                *parent_count.get_mut(&array).unwrap() += 1;
             }
             idx += 1;
         }
@@ -100,10 +99,10 @@ impl Node {
         let mut res = vec![self.clone()];
         let mut idx = 0;
         while idx < res.len() {
-            for node in res[idx].comp().sources() {
-                *parent_count.get_mut(&node).unwrap() -= 1;
-                if *parent_count.get_mut(&node).unwrap() == 0 {
-                    res.push(node);
+            for array in res[idx].comp().sources() {
+                *parent_count.get_mut(&array).unwrap() -= 1;
+                if *parent_count.get_mut(&array).unwrap() == 0 {
+                    res.push(array);
                 }
             }
             idx += 1;
@@ -113,22 +112,22 @@ impl Node {
     }
 
     /// Calculates the derivative of the target value with respect to all intermediates in the computation graph.
-    pub fn derive(&self) -> Map<Node, Node> {
+    pub fn derive(&self) -> Map<DArray, DArray> {
         assert_eq!(
             self.len(),
             1,
-            "Derivatives are supported only for Nodes with a single element! Real len is {}",
+            "Derivatives are supported only for scalars! Array length is {}",
             self.len()
         );
 
         // Initializing the derivative map.
         let mut grads = Map::default();
-        grads.insert(self.clone(), Node::from_data(&[1.]));
+        grads.insert(self.clone(), DArray::from_data(&[1.]));
 
-        for node in self.topological_sort() {
-            let node_grads = grads.get(&node).unwrap();
-            let sources = node.comp().sources();
-            let source_grads = node.comp().derivatives(node_grads.clone());
+        for array in self.topological_sort() {
+            let array_grads = grads.get(&array).unwrap();
+            let sources = array.comp().sources();
+            let source_grads = array.comp().derivatives(array_grads.clone());
 
             for (source, grad) in izip!(sources.iter(), source_grads.iter()) {
                 let old_grad = grads.get(source);
@@ -145,55 +144,55 @@ impl Node {
         grads
     }
 
-    /// Returns if the node represents a single item.
+    /// Returns if the array represents a single item.
     pub fn is_scalar(&self) -> bool {
         self.len() == 1
     }
 }
 
-impl Eq for NodeInternal {}
+impl Eq for DArrayInternal {}
 
-impl PartialEq<Self> for NodeInternal {
+impl PartialEq<Self> for DArrayInternal {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
     }
 }
 
-impl Hash for NodeInternal {
+impl Hash for DArrayInternal {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state)
     }
 }
 
-impl Eq for Node {}
+impl Eq for DArray {}
 
-impl PartialEq<Self> for Node {
+impl PartialEq<Self> for DArray {
     fn eq(&self, other: &Self) -> bool {
-        self.node.deref().eq(&*other.node.deref())
+        self.internal.deref().eq(&*other.internal.deref())
     }
 }
 
-impl Hash for Node {
+impl Hash for DArray {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.node.deref().hash(state)
+        self.internal.deref().hash(state)
     }
 }
 
-impl From<f64> for Node {
+impl From<f64> for DArray {
     fn from(src: f64) -> Self {
-        Node::from_data(&[src])
+        DArray::from_data(&[src])
     }
 }
 
-impl From<Vec<f64>> for Node {
+impl From<Vec<f64>> for DArray {
     fn from(src: Vec<f64>) -> Self {
-        Node::from_data(src.as_slice())
+        DArray::from_data(src.as_slice())
     }
 }
 
-impl <Comp: Computation + Clone + 'static> From<Comp> for Node {
+impl <Comp: Computation + Clone + 'static> From<Comp> for DArray {
     fn from(src: Comp) -> Self {
-        Node::from_comp(src)
+        DArray::from_comp(src)
     }
 }
 
@@ -202,7 +201,7 @@ impl <Comp: Computation + Clone + 'static> From<Comp> for Node {
 mod tests {
     use rand::prelude::StdRng;
     use rand::{Rng, SeedableRng};
-    use crate::node::Node;
+    use crate::array::DArray;
 
     const SEED: [u8; 32] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31];
     const DIFF: f64 = 1e-7;
@@ -226,7 +225,7 @@ mod tests {
             let v1: f64 = rng.gen::<f64>() * 100. - 50.;
             let v2: f64 = (rng.gen::<f64>() * 100. - 50.) * DIFF + v1 * (1. - DIFF);
 
-            let root = Node::from_data(&[v1, v2]);
+            let root = DArray::from_data(&[v1, v2]);
 
             let mut arr = vec![];
             for _ in 0..3 {

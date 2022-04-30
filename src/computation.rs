@@ -1,12 +1,12 @@
-use crate::node::Node;
+use crate::array::DArray;
 
-/// A trait representing the computations which were used to generate nodes in the computation graph.
+/// A trait representing the computations which were used to generate arrays in the computation graph.
 /// Used to perform the backward propagation.
 pub trait Computation {
-    /// Returns a vector of the parent nodes involved in the computation.
-    fn sources(&self) -> Vec<Node>;
-    /// Calculates the derivatives of the computation by each of the parent nodes.
-    fn derivatives(&self, res_grads: Node) -> Vec<Node>;
+    /// Returns a vector of the parent arrays involved in the computation.
+    fn sources(&self) -> Vec<DArray>;
+    /// Calculates the derivatives of the computation by each of the parent arrays.
+    fn derivatives(&self, res_grads: DArray) -> Vec<DArray>;
     /// Calculates the function and adds the result to the given array.
     fn apply(&self, res_array: &mut [f64]);
     /// The length of the result array.
@@ -14,17 +14,17 @@ pub trait Computation {
 }
 
 /// A computation that does nothing.
-/// Used for nodes which are initialized from raw data, and are not computed.
+/// Used for arrays which are initialized from raw data, and are not computed.
 #[derive(Copy, Clone)]
 pub struct NullComp {
 }
 
 impl Computation for NullComp {
-    fn sources(&self) -> Vec<Node> {
+    fn sources(&self) -> Vec<DArray> {
         vec![]
     }
 
-    fn derivatives(&self, _: Node) -> Vec<Node> {
+    fn derivatives(&self, _: DArray) -> Vec<DArray> {
         vec![]
     }
 
@@ -42,11 +42,11 @@ pub struct FromDataComp {
 }
 
 impl Computation for FromDataComp {
-    fn sources(&self) -> Vec<Node> {
+    fn sources(&self) -> Vec<DArray> {
         vec![]
     }
 
-    fn derivatives(&self, _: Node) -> Vec<Node> {
+    fn derivatives(&self, _: DArray) -> Vec<DArray> {
         vec![]
     }
 

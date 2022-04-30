@@ -1,17 +1,17 @@
 extern crate core;
 
-pub mod comps;
-pub mod node;
+pub mod computation;
+pub mod array;
 pub mod unary_functions;
 pub mod binary_functions;
 pub mod index_functions;
 
-pub use crate::node::Node;
+pub use crate::array::DArray;
 
 #[cfg(test)]
 mod tests {
     use crate::index_functions::IndexComp;
-    use crate::Node;
+    use crate::DArray;
 
     #[test]
     fn it_works() {
@@ -21,15 +21,15 @@ mod tests {
 
     #[test]
     fn main() {
-        let root_1 = Node::from(vec![-6., 1.]);
-        let root_2 = Node::from(vec![4., 2.]);
-        let mul_node = &root_1 * &root_2;
-        let add_node = &mul_node + &root_1;
-        let res = IndexComp::map_indices(&add_node, (0..2).map(|i| (i, 0)), 1);
+        let root_1 = DArray::from(vec![-6., 1.]);
+        let root_2 = DArray::from(vec![4., 2.]);
+        let mul_array = &root_1 * &root_2;
+        let add_array = &mul_array + &root_1;
+        let res = IndexComp::map_indices(&add_array, (0..2).map(|i| (i, 0)), 1);
         let grads = res.derive();
         println!("res: {:?}", &res.data());
 
-        println!("{:?}", &add_node.data());
+        println!("{:?}", &add_array.data());
         println!("{:?}", &grads.get(&root_1).unwrap().data());
         println!("{:?}", &grads.get(&root_2).unwrap().data());
 

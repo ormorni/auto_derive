@@ -1,4 +1,4 @@
-use std::ops::{Add, Div, Mul, Sub};
+use std::ops::{Add, Div, Mul, Neg, Sub};
 
 use crate::computation::Computation;
 use crate::index_functions::expand_array;
@@ -41,19 +41,29 @@ impl Computation for AddComp {
     }
 }
 
-impl Add for &DArray {
+impl <Other: Into<DArray>> Add<Other> for &DArray {
     type Output = DArray;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        DArray::from(AddComp::new(self.clone(), rhs.clone()))
+    fn add(self, rhs: Other) -> Self::Output {
+        DArray::from(AddComp::new(self.into(), rhs.into()))
+    }
+}
+impl <Other: Into<DArray>> Add<Other> for DArray {
+    type Output = DArray;
+    fn add(self, rhs: Other) -> Self::Output {
+        DArray::from(AddComp::new(self.into(), rhs.into()))
     }
 }
 
-impl Sub for &DArray {
+impl <OtherNeg : Into<DArray>, Other: Neg<Output = OtherNeg>>  Sub<Other> for &DArray {
     type Output = DArray;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        self + &-rhs
+    fn sub(self, rhs: Other) -> Self::Output {
+        self.clone() + (-rhs)
+    }
+}
+impl <OtherNeg : Into<DArray>, Other: Neg<Output = OtherNeg>>  Sub<Other> for DArray {
+    type Output = DArray;
+    fn sub(self, rhs: Other) -> Self::Output {
+        self + (-rhs)
     }
 }
 
@@ -97,19 +107,32 @@ impl Computation for MulComp {
     }
 }
 
-impl Mul for &DArray {
+impl <Other: Into<DArray>> Mul<Other> for &DArray {
     type Output = DArray;
 
-    fn mul(self, rhs: Self) -> Self::Output {
-        DArray::from(MulComp::new(self.clone(), rhs.clone()))
+    fn mul(self, rhs: Other) -> Self::Output {
+        DArray::from(MulComp::new(self.clone(), rhs.into()))
     }
 }
-
-impl Div for &DArray {
+impl <Other: Into<DArray>> Mul<Other> for DArray {
     type Output = DArray;
 
-    fn div(self, rhs: Self) -> Self::Output {
-        DArray::from(MulComp::new(self.clone(), rhs.powi(-1)))
+    fn mul(self, rhs: Other) -> Self::Output {
+        DArray::from(MulComp::new(self, rhs.into()))
+    }
+}
+impl <Other: Into<DArray>> Div<Other> for DArray {
+    type Output = DArray;
+
+    fn div(self, rhs: Other) -> Self::Output {
+        DArray::from(MulComp::new(self, rhs.into().powi(-1)))
+    }
+}
+impl <Other: Into<DArray>> Div<Other> for &DArray {
+    type Output = DArray;
+
+    fn div(self, rhs: Other) -> Self::Output {
+        DArray::from(MulComp::new(self.clone(), rhs.into().powi(-1)))
     }
 }
 
@@ -163,18 +186,18 @@ mod tests {
 
     #[test]
     fn test_add() {
-        test_binary(|array1, array2| &array1 + &array2);
+        test_binary(|array1, array2| array1 + array2);
     }
     #[test]
     fn test_sub() {
-        test_binary(|array1, array2| &array1 - &array2);
+        test_binary(|array1, array2| array1 - array2);
     }
     #[test]
     fn test_mul() {
-        test_binary(|array1, array2| &array1 * &array2);
+        test_binary(|array1, array2| array1 * array2);
     }
     #[test]
     fn test_div() {
-        test_binary(|array1, array2| &array1 / &array2);
+        test_binary(|array1, array2| array1 / array2);
     }
 }

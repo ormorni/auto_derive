@@ -178,11 +178,18 @@ impl DerivableOp for NegFunc {
 
 impl Neg for &DArray {
     type Output = DArray;
-
     fn neg(self) -> Self::Output {
         DArray::from(UnaryComp::new(self.clone(), NegFunc {}))
     }
 }
+impl Neg for DArray {
+    type Output = DArray;
+    fn neg(self) -> Self::Output {
+        DArray::from(UnaryComp::new(self, NegFunc {}))
+    }
+}
+
+
 
 /// The sine function.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]

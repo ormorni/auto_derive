@@ -190,6 +190,12 @@ impl From<Vec<f64>> for DArray {
     }
 }
 
+impl From<&DArray> for DArray {
+    fn from(src: &DArray) -> Self {
+        src.clone()
+    }
+}
+
 impl <Comp: Computation + Clone> From<Comp> for DArray {
     fn from(src: Comp) -> Self {
         DArray::from_comp(src)

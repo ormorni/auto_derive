@@ -293,6 +293,102 @@ impl DArray {
     }
 }
 
+/// A function testing if the value is larger than some contant.
+#[derive(Copy, Clone, PartialEq)]
+struct GtFunc {
+    val: f64,
+}
+
+impl DerivableOp for GtFunc {
+    type Derivative = ZeroFunc;
+
+    fn apply(&self, src: &f64) -> f64 {
+        if *src > self.val {
+            1.
+        } else {
+            0.
+        }
+    }
+
+    fn derivative(&self) -> Self::Derivative {
+        ZeroFunc {}
+    }
+}
+
+/// The pointwise maximum function.
+#[derive(Copy, Clone, PartialEq)]
+struct MaxFunc {
+    val: f64,
+}
+
+impl DerivableOp for MaxFunc {
+    type Derivative = GtFunc;
+
+    fn apply(&self, src: &f64) -> f64 {
+        src.max(self.val)
+    }
+
+    fn derivative(&self) -> Self::Derivative {
+        GtFunc { val: self.val }
+    }
+}
+
+
+/// A function testing if the value is larger than some contant.
+#[derive(Copy, Clone, PartialEq)]
+struct LtFunc {
+    val: f64,
+}
+
+impl DerivableOp for LtFunc {
+    type Derivative = ZeroFunc;
+
+    fn apply(&self, src: &f64) -> f64 {
+        if *src < self.val {
+            1.
+        } else {
+            0.
+        }
+    }
+
+    fn derivative(&self) -> Self::Derivative {
+        ZeroFunc {}
+    }
+}
+
+/// The pointwise maximum function.
+#[derive(Copy, Clone, PartialEq)]
+struct MinFunc {
+    val: f64,
+}
+
+impl DerivableOp for MinFunc {
+    type Derivative = GtFunc;
+
+    fn apply(&self, src: &f64) -> f64 {
+        src.min(self.val)
+    }
+
+    fn derivative(&self) -> Self::Derivative {
+        GtFunc { val: self.val }
+    }
+}
+
+impl DArray {
+    /// Performs the pointwise maximum function.
+    fn max(&self, val: f64) -> DArray {
+        DArray::from(UnaryComp::new(self.clone(), MaxFunc { val }))
+    }
+    /// Performs the pointwise minimum function.
+    fn min(&self, val: f64) -> DArray {
+        DArray::from(UnaryComp::new(self.clone(), MinFunc { val }))
+    }
+}
+
+
+
+
+
 /// Tests for the unary functions.
 #[cfg(test)]
 mod tests {

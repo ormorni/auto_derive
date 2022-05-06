@@ -376,17 +376,23 @@ impl DerivableOp for MinFunc {
 
 impl DArray {
     /// Performs the pointwise maximum function.
-    fn max(&self, val: f64) -> DArray {
+    pub fn max(&self, val: f64) -> DArray {
         DArray::from(UnaryComp::new(self.clone(), MaxFunc { val }))
     }
     /// Performs the pointwise minimum function.
-    fn min(&self, val: f64) -> DArray {
+    pub fn min(&self, val: f64) -> DArray {
         DArray::from(UnaryComp::new(self.clone(), MinFunc { val }))
     }
+
+    /// Returns an array with ones where the original value is larger than the given value and 0 otherwise.
+    pub fn gt(&self, val: f64) -> DArray {
+        DArray::from(UnaryComp::new(self.clone(), GtFunc { val }))
+    }
+    /// Returns an array with ones where the original value is smaller than the given value and 0 otherwise.
+    pub fn lt(&self, val: f64) -> DArray {
+        DArray::from(UnaryComp::new(self.clone(), LtFunc { val }))
+    }
 }
-
-
-
 
 
 /// Tests for the unary functions.

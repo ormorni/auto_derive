@@ -6,6 +6,7 @@ use fxhash::FxHashMap;
 use itertools::izip;
 use rand::Rng;
 use sloth::Lazy;
+use crate::unary_functions::{DerivableOp, UnaryComp};
 
 type Map<K, V> = FxHashMap<K, V>;
 
@@ -147,6 +148,11 @@ impl DArray {
     /// Returns if the array represents a single item.
     pub fn is_scalar(&self) -> bool {
         self.len() == 1
+    }
+
+    /// Maps the array using a derivable function.
+    pub fn map(&self, op: impl DerivableOp) -> DArray {
+        DArray::from(UnaryComp::new(self.clone(), op.clone()))
     }
 }
 

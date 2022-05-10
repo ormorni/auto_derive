@@ -179,13 +179,13 @@ impl DerivableOp for NegFunc {
 impl Neg for &DArray {
     type Output = DArray;
     fn neg(self) -> Self::Output {
-        DArray::from(UnaryComp::new(self.clone(), NegFunc {}))
+        self.map(NegFunc {})
     }
 }
 impl Neg for DArray {
     type Output = DArray;
     fn neg(self) -> Self::Output {
-        DArray::from(UnaryComp::new(self, NegFunc {}))
+        self.map(NegFunc {})
     }
 }
 
@@ -241,11 +241,10 @@ pub struct UnaryComp<Op: DerivableOp> {
 }
 
 impl<Op: DerivableOp> UnaryComp<Op> {
-    fn new(src: DArray, op: Op) -> UnaryComp<Op> {
+    /// Initializes a new unary computation object.
+    pub fn new(src: DArray, op: Op) -> UnaryComp<Op> {
         UnaryComp {src, op}
     }
-
-
 }
 
 impl<Op: DerivableOp> Computation for UnaryComp<Op> {
@@ -254,7 +253,7 @@ impl<Op: DerivableOp> Computation for UnaryComp<Op> {
     }
 
     fn derivatives(&self, res_grads: DArray) -> Vec<DArray> {
-        vec![&DArray::from(UnaryComp::new(self.src.clone(), self.op.derivative())) * &res_grads]
+        vec![self.src.map(self.op.derivative()) * res_grads]
     }
 
     fn apply(&self, res_array: &mut [f64]) {
@@ -271,25 +270,25 @@ impl<Op: DerivableOp> Computation for UnaryComp<Op> {
 /// An implementation of the standard f64 functions to floats.
 impl DArray {
     pub fn sin(&self) -> DArray {
-        DArray::from(UnaryComp::new(self.clone(), SinFunc { sign_flip: false }))
+        self.map(SinFunc { sign_flip: false })
     }
     pub fn cos(&self) -> DArray {
-        DArray::from(UnaryComp::new(self.clone(), CosFunc { sign_flip: false }))
+        self.map(CosFunc { sign_flip: false })
     }
     pub fn exp(&self) -> DArray {
-        DArray::from(UnaryComp::new(self.clone(), ExpFunc {}))
+        self.map(ExpFunc {})
     }
     pub fn powi(&self, power: i32) -> DArray {
-        DArray::from(UnaryComp::new(self.clone(), PowiFunc { power, coef: 1 }))
+        self.map(PowiFunc { power, coef: 1 })
     }
     pub fn signum(&self) -> DArray {
-        DArray::from(UnaryComp::new(self.clone(), SignumFunc {}))
+        self.map(SignumFunc {})
     }
     pub fn abs(&self) -> DArray {
-        DArray::from(UnaryComp::new(self.clone(), AbsFunc {}))
+        self.map(AbsFunc {})
     }
     pub fn ln(&self) -> DArray {
-        DArray::from(UnaryComp::new(self.clone(), LnFunc {}))
+        self.map(LnFunc {})
     }
 }
 
@@ -377,20 +376,19 @@ impl DerivableOp for MinFunc {
 impl DArray {
     /// Performs the pointwise maximum function.
     pub fn max(&self, val: f64) -> DArray {
-        DArray::from(UnaryComp::new(self.clone(), MaxFunc { val }))
+        self.map(MaxFunc { val })
     }
     /// Performs the pointwise minimum function.
     pub fn min(&self, val: f64) -> DArray {
-        DArray::from(UnaryComp::new(self.clone(), MinFunc { val }))
+        self.map(MinFunc { val })
     }
-
     /// Returns an array with ones where the original value is larger than the given value and 0 otherwise.
     pub fn gt(&self, val: f64) -> DArray {
-        DArray::from(UnaryComp::new(self.clone(), GtFunc { val }))
+        self.map(GtFunc { val })
     }
     /// Returns an array with ones where the original value is smaller than the given value and 0 otherwise.
     pub fn lt(&self, val: f64) -> DArray {
-        DArray::from(UnaryComp::new(self.clone(), LtFunc { val }))
+        self.map(LtFunc { val })
     }
 }
 

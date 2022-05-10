@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use crate::computation::{Computation, FromDataComp};
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
@@ -5,7 +6,6 @@ use std::rc::Rc;
 use fxhash::FxHashMap;
 use itertools::izip;
 use rand::Rng;
-use sloth::Lazy;
 use crate::unary_functions::{DerivableOp, UnaryComp};
 
 type Map<K, V> = FxHashMap<K, V>;
@@ -16,11 +16,31 @@ type Map<K, V> = FxHashMap<K, V>;
 /// using backward propagation.
 struct DArrayInternal {
     /// The data stored by the array.
-    data: Lazy<Vec<f64>, Box<dyn FnOnce() -> Vec<f64>>>,
+    data: RefCell<Option<Vec<f64>>>,
     /// The computation used to calculate the array. Tracks the computation graph.
     comp: Box<dyn Computation>,
     /// An ID, used to easily sort the arrays by order of creation.
     id: usize,
+}
+
+impl DArrayInternal {
+    /// Gets the data of the internal array.
+    fn data(&self) -> &Vec<f64> {
+        // Initializing.
+        if self.data.borrow().is_none() {
+            let mut data = self.data.borrow_mut();
+            *data = Some(vec![0.; self.comp.len()]);
+            self.comp.apply(data.as_mut().unwrap());
+        }
+
+        unsafe {
+            self.data.as_ptr()
+                .as_ref()
+                .unwrap()
+                .as_ref()
+                .unwrap()
+        }
+    }
 }
 
 /// A struct proving a comfortable handle for the actual arrays.
@@ -47,28 +67,21 @@ impl DArray {
     fn from_comp(
         comp: impl Computation + Clone,
     ) -> DArray {
-        let ln = comp.len();
-        let cloned_comp = comp.clone();
-
         DArray::new(DArrayInternal {
-            data: Lazy::new(Box::new(move || {
-                let mut data = vec![0.; ln];
-                cloned_comp.apply(&mut data);
-                data
-            })),
+            data: RefCell::new(None),
             comp: Box::new(comp),
             id: rand::thread_rng().gen::<usize>(),
         })
-
     }
+
     /// Returns the length of the array held by the array.
     pub fn len(&self) -> usize {
-        self.internal.data.len()
+        self.internal.comp.len()
     }
 
     /// Returns a reference to the array's data.
     pub fn data(&self) -> &Vec<f64> {
-        &self.internal.data
+        self.internal.data()
     }
 
     /// Returns a reference to the array's computation.

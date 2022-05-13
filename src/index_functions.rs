@@ -52,8 +52,9 @@ impl Computation for IndexComp {
     }
 
     fn apply(&self, res_array: &mut [f64]) {
+        let data = self.array.data();
         for (src, tar) in self.indices.iter() {
-            res_array[*tar] += self.array.data()[*src];
+            res_array[*tar] += data[*src];
         }
     }
 

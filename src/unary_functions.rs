@@ -1,4 +1,5 @@
 use std::ops::Neg;
+use itertools::izip;
 /// Implementation of unary functions for the array.
 /// To make implementing unary functions simpler,
 /// the trait DerivableOp allows easy definition of derivable functions,
@@ -257,8 +258,8 @@ impl<Op: DerivableOp> Computation for UnaryComp<Op> {
     }
 
     fn apply(&self, res_array: &mut [f64]) {
-        for i in 0..self.len() {
-            res_array[i] += self.op.apply(&self.src.data()[i]);
+        for (res, data) in izip!(res_array.iter_mut(), self.src.data().iter()) {
+            *res += self.op.apply(data);
         }
     }
 

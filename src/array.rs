@@ -19,6 +19,8 @@ struct DArrayInternal {
     data: RefCell<Option<Vec<f64>>>,
     /// The computation used to calculate the array. Tracks the computation graph.
     comp: Box<dyn Computation>,
+    /// The length of the array held by the DArray.
+    length: usize,
     /// An ID, used to easily sort the arrays by order of creation.
     id: usize,
 }
@@ -69,6 +71,7 @@ impl DArray {
     ) -> DArray {
         DArray::new(DArrayInternal {
             data: RefCell::new(None),
+            length: comp.len(),
             comp: Box::new(comp),
             id: rand::thread_rng().gen::<usize>(),
         })
@@ -76,7 +79,7 @@ impl DArray {
 
     /// Returns the length of the array held by the array.
     pub fn len(&self) -> usize {
-        self.internal.comp.len()
+        self.internal.length
     }
 
     /// Returns a reference to the array's data.

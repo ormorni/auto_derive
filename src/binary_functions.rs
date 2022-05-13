@@ -1,4 +1,5 @@
 use std::ops::{Add, Div, Mul, Neg, Sub};
+use itertools::izip;
 
 use crate::computation::Computation;
 use crate::index_functions::expand_array;
@@ -97,10 +98,8 @@ impl Computation for MulComp {
 
     fn apply(&self, res_array: &mut [f64]) {
         assert_eq!(res_array.len(), self.len());
-        let p1_data = self.p1.data();
-        let p2_data = self.p2.data();
-        for i in 0..self.len() {
-            res_array[i] += p1_data[i] * p2_data[i];
+        for (res, p1, p2) in izip!(res_array.iter_mut(), self.p1.data().iter(), self.p2.data().iter()) {
+            *res += p1 * p2;
         }
     }
 

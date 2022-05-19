@@ -1,42 +1,50 @@
-use std::cell::RefCell;
+use std::cell::UnsafeCell;
 use crate::computation::{Computation, FromDataComp};
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 use fxhash::FxHashMap;
 use itertools::izip;
 use rand::Rng;
 use crate::unary_functions::{DerivableOp, UnaryComp};
 
 type Map<K, V> = FxHashMap<K, V>;
-
+type IdType = usize;
 
 /// A wrapper over a float array, which dynamically creates a computation graph.
 /// The computation graph can then be used to automatically calculate derivatives of complex functions
 /// using backward propagation.
 struct DArrayInternal {
     /// The data stored by the array.
-    data: RefCell<Option<Vec<f64>>>,
+    data: UnsafeCell<Option<Vec<f64>>>,
     /// The computation used to calculate the array. Tracks the computation graph.
     comp: Box<dyn Computation>,
     /// The length of the array held by the DArray.
     length: usize,
+    /// A lock making sure that the data is only initialized once.
+    lock: Mutex<()>,
     /// An ID, used to easily sort the arrays by order of creation.
-    id: usize,
+    id: IdType,
 }
 
 impl DArrayInternal {
     /// Gets the data of the internal array.
     fn data(&self) -> &Vec<f64> {
         // Initializing.
-        if self.data.borrow().is_none() {
-            let mut data = self.data.borrow_mut();
-            *data = Some(vec![0.; self.comp.len()]);
-            self.comp.apply(data.as_mut().unwrap());
-        }
-
         unsafe {
-            self.data.as_ptr()
+            if self.data.get().as_ref().unwrap().is_none() {
+                // Before a thread is allowed to modify the data, it must first obtain the lock.
+                // Since the DArrays form a DAG, there is a partial ordering on the mutexes.
+                // One of the mutexes will always be minimal, and will be acquired successfully.
+                let _ = self.lock.lock().unwrap();
+                if self.data.get().as_ref().unwrap().is_none() {
+                    let data = self.data.get().as_mut().unwrap();
+                    *data = Some(vec![0.; self.comp.len()]);
+                    self.comp.apply(data.as_mut().unwrap());
+                }
+            }
+
+            self.data.get()
                 .as_ref()
                 .unwrap()
                 .as_ref()
@@ -45,10 +53,13 @@ impl DArrayInternal {
     }
 }
 
+unsafe impl Sync for DArrayInternal {}
+unsafe impl Send for DArrayInternal {}
+
 /// A struct proving a comfortable handle for the actual arrays.
 #[derive(Clone)]
 pub struct DArray {
-    internal: Rc<DArrayInternal>,
+    internal: Arc<DArrayInternal>,
 }
 
 impl DArray {
@@ -56,7 +67,7 @@ impl DArray {
     /// Used only in the array's constructors.
     fn new(array: DArrayInternal) -> Self {
         DArray {
-            internal: Rc::new(array),
+            internal: Arc::new(array),
         }
     }
 
@@ -70,10 +81,11 @@ impl DArray {
         comp: impl Computation + Clone,
     ) -> DArray {
         DArray::new(DArrayInternal {
-            data: RefCell::new(None),
+            data: UnsafeCell::new(None),
+            lock: Mutex::new(()),
             length: comp.len(),
             comp: Box::new(comp),
-            id: rand::thread_rng().gen::<usize>(),
+            id: rand::thread_rng().gen::<IdType>(),
         })
     }
 

@@ -2,7 +2,7 @@ use std::cell::UnsafeCell;
 use crate::computation::{Computation, FromDataComp};
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 use fxhash::FxHashMap;
 use itertools::izip;
 use rand::Rng;
@@ -16,13 +16,11 @@ type IdType = usize;
 /// using backward propagation.
 struct DArrayInternal {
     /// The data stored by the array.
-    data: UnsafeCell<Option<Vec<f64>>>,
+    data: RwLock<UnsafeCell<Option<Vec<f64>>>>,
     /// The computation used to calculate the array. Tracks the computation graph.
     comp: Box<dyn Computation>,
     /// The length of the array held by the DArray.
     length: usize,
-    /// A lock making sure that the data is only initialized once.
-    lock: Mutex<()>,
     /// An ID, used to easily sort the arrays by order of creation.
     id: IdType,
 }
@@ -32,19 +30,21 @@ impl DArrayInternal {
     fn data(&self) -> &Vec<f64> {
         // Initializing.
         unsafe {
-            if self.data.get().as_ref().unwrap().is_none() {
+            if self.data.try_read().unwrap().get().as_ref().unwrap().is_none() {
                 // Before a thread is allowed to modify the data, it must first obtain the lock.
                 // Since the DArrays form a DAG, there is a partial ordering on the mutexes.
                 // One of the mutexes will always be minimal, and will be acquired successfully.
-                let _ = self.lock.lock().unwrap();
-                if self.data.get().as_ref().unwrap().is_none() {
-                    let data = self.data.get().as_mut().unwrap();
+                let mut guard = self.data.write().unwrap();
+                let data = guard.get_mut();
+                if data.is_none() {
                     *data = Some(vec![0.; self.comp.len()]);
                     self.comp.apply(data.as_mut().unwrap());
                 }
             }
 
-            self.data.get()
+            self.data.try_read()
+                .unwrap()
+                .get()
                 .as_ref()
                 .unwrap()
                 .as_ref()
@@ -53,8 +53,9 @@ impl DArrayInternal {
     }
 }
 
-unsafe impl Sync for DArrayInternal {}
-unsafe impl Send for DArrayInternal {}
+unsafe impl Sync for DArray {}
+unsafe impl Send for DArray {}
+
 
 /// A struct proving a comfortable handle for the actual arrays.
 #[derive(Clone)]
@@ -81,8 +82,7 @@ impl DArray {
         comp: impl Computation + Clone,
     ) -> DArray {
         DArray::new(DArrayInternal {
-            data: UnsafeCell::new(None),
-            lock: Mutex::new(()),
+            data: RwLock::new(UnsafeCell::new(None)),
             length: comp.len(),
             comp: Box::new(comp),
             id: rand::thread_rng().gen::<IdType>(),
@@ -241,7 +241,7 @@ impl <Comp: Computation + Clone> From<Comp> for DArray {
 mod tests {
     use rand::prelude::StdRng;
     use rand::{Rng, SeedableRng};
-    use crate::array::DArray;
+    use crate::array::{DArray, DArrayInternal};
 
     const SEED: [u8; 32] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31];
     const DIFF: f64 = 1e-7;
@@ -260,6 +260,7 @@ mod tests {
     /// Tests that the derivative of complex random rational functions are evaluated correctly.
     #[test]
     fn test_derivation() {
+
         let mut rng = StdRng::from_seed(SEED);
         for _ in 0..100 {
             let v1: f64 = rng.gen::<f64>() * 100. - 50.;

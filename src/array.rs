@@ -30,7 +30,12 @@ impl DArrayInternal {
     fn data(&self) -> &Vec<f64> {
         // Initializing.
         unsafe {
-            if self.data.try_read().unwrap().get().as_ref().unwrap().is_none() {
+            if self.data.read()
+                .unwrap()
+                .get()
+                .as_ref()
+                .unwrap()
+                .is_none() {
                 // Before a thread is allowed to modify the data, it must first obtain the lock.
                 // Since the DArrays form a DAG, there is a partial ordering on the mutexes.
                 // One of the mutexes will always be minimal, and will be acquired successfully.

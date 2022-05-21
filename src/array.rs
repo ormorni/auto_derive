@@ -1,11 +1,14 @@
 use std::cell::UnsafeCell;
+use std::collections::HashMap;
 use crate::computation::{Computation, FromDataComp};
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
+use std::sync::atomic::{AtomicIsize, AtomicUsize, Ordering};
 use fxhash::FxHashMap;
-use itertools::izip;
+use itertools::{cloned, izip};
 use rand::Rng;
+use rayon::{Scope, ThreadPool, ThreadPoolBuilder};
 use crate::unary_functions::{DerivableOp, UnaryComp};
 
 type Map<K, V> = FxHashMap<K, V>;
@@ -109,7 +112,8 @@ impl DArray {
         &self.internal.comp
     }
 
-    /// Performs topological sorting of the array.
+    /// Returns the list of all intermediates of the array.
+    /// The ordering of the list guarantees that every array in the list is placed before all its source arrays.
     /// To ensure correct derivations, the backpropagation has to be called on all arrays using a
     /// given array before being called on it. The topological sorting ensures that the calls to the backpropagation
     /// satisfies this requirement.
@@ -176,6 +180,46 @@ impl DArray {
         }
 
         grads
+    }
+
+    fn _eval_darray(scope: &Scope,
+                    sources: Arc<HashMap<DArray, AtomicUsize>>,
+                    targets: Arc<HashMap<DArray, Vec<DArray>>>,
+                    arr: DArray) {
+        arr.data();
+        for tar in targets.get(&arr).unwrap().iter().cloned() {
+            let rem_uneval = sources.get(&tar).unwrap();
+
+            if rem_uneval.fetch_sub(1, Ordering::Relaxed) == 1 {
+                let cloned_sources = sources.clone();
+                let cloned_targets = targets.clone();
+                scope.spawn(move |s| DArray::_eval_darray(s, cloned_sources, cloned_targets, tar));
+            }
+        }
+    }
+
+    /// Evaluates the DArray and all intermediates using multithreading.
+    pub fn par_eval(&self) {
+        let intermediates = self.topological_sort();
+        let uneval_sources = Arc::new(intermediates.iter().map(|arr|(arr.clone(), AtomicUsize::new(arr.comp().sources().len()))).collect::<HashMap<DArray, AtomicUsize>>());
+
+        let mut targets = intermediates.iter().cloned().map(|arr|(arr, vec![])).collect::<HashMap<DArray, Vec<DArray>>>();
+        for arr in intermediates.iter() {
+            for source in arr.comp().sources() {
+                targets.get_mut(&source).unwrap().push(arr.clone());
+            }
+        }
+        let targets = Arc::new(targets);
+        rayon::in_place_scope(|s| {
+            for arr in intermediates.iter() {
+                if arr.comp().sources().len() == 0 {
+                    let cloned_sources = uneval_sources.clone();
+                    let cloned_targets = targets.clone();
+                    let cloned_arr = arr.clone();
+                    s.spawn(|s| DArray::_eval_darray(s, cloned_sources, cloned_targets, cloned_arr));
+                }
+            }
+        });
     }
 
     /// Returns if the array represents a single item.
@@ -293,6 +337,40 @@ mod tests {
             let res = arr[0].index(0);
             let grad = res.derive().get(&root).unwrap().data()[0];
             assert_close(arr[0].data()[1] - arr[0].data()[0], grad * (root.data()[1] - root.data()[0]));
+        }
+    }
+
+    /// Tests that the derivative of complex random rational functions are evaluated correctly.
+    #[test]
+    fn test_par_eval() {
+
+        let mut rng = StdRng::from_seed(SEED);
+        for _ in 0..100 {
+            let v1: f64 = rng.gen::<f64>() * 100. - 50.;
+            let v2: f64 = (rng.gen::<f64>() * 100. - 50.) * DIFF + v1 * (1. - DIFF);
+
+            let root = DArray::from_data(&[v1, v2]);
+
+            let mut arr = vec![];
+            for _ in 0..3 {
+                arr.push(root.clone());
+            }
+
+            for _ in 0..20 {
+                let p1: usize = rng.gen_range(0..arr.len());
+                let p2: usize = rng.gen_range(0..arr.len());
+                let op: usize = rng.gen_range(0..3);
+
+                match op {
+                    0 => {arr[p1] = &arr[p1] + &arr[p2]},
+                    1 => {arr[p1] = &arr[p1] * &arr[p2]},
+                    2 => {arr[p1] = &arr[p1] / &arr[p2]},
+                    _ => panic!()
+                }
+            }
+            let res = arr[0].index(0);
+            let grad = res.derive().get(&root).unwrap().clone();
+            grad.par_eval();
         }
     }
 }

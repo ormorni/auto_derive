@@ -25,12 +25,7 @@ impl IndexComp {
         length: usize,
     ) -> IndexComp {
         // Making sure all indices are legal.
-        let mut indices: Vec<(usize, usize)> = iter.collect();
-        if array.len() > length {
-            indices.sort_unstable();
-        } else {
-            indices.sort_unstable_by(|t1, t2|t1.1.cmp(&t2.1));
-        }
+        let indices: Vec<(usize, usize)> = iter.collect();
 
         assert!(indices.iter().all(|idx| idx.0 < array.len()));
         assert!(indices.iter().all(|idx| idx.1 < length));

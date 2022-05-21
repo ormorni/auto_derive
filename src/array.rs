@@ -47,7 +47,7 @@ impl DArrayInternal {
                 }
             }
 
-            self.data.try_read()
+            self.data.read()
                 .unwrap()
                 .get()
                 .as_ref()

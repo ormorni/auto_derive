@@ -1,11 +1,11 @@
-use std::ops::Neg;
+use std::ops::{Mul, Neg};
 use itertools::izip;
 /// Implementation of unary functions for the array.
 /// To make implementing unary functions simpler,
 /// the trait DerivableOp allows easy definition of derivable functions,
 /// which can then be used with UnaryComp.
 use crate::computation::Computation;
-use crate::array::DArray;
+use crate::array::{DArray, DArrayRef};
 
 /// A trait for derivable functions.
 /// Used to more easily implement pointwise functions on arrays.
@@ -51,6 +51,41 @@ impl DerivableOp for ConstFunc {
         ZeroFunc {}
     }
 }
+
+#[derive(Copy, Clone, PartialEq)]
+struct MulConstFunc {
+    cons: f64,
+}
+
+impl DerivableOp for MulConstFunc {
+    type Derivative = ConstFunc;
+
+    fn apply(&self, f: &f64) -> f64 {
+        f * self.cons
+    }
+
+    fn derivative(&self) -> Self::Derivative {
+        ConstFunc {cons: self.cons}
+    }
+}
+
+
+impl Mul<f64> for &DArray {
+    type Output = DArray;
+
+    fn mul(self, rhs: f64) -> Self::Output {
+        DArray::from(UnaryComp::new(self.clone(), MulConstFunc {cons: rhs}))
+    }
+}
+impl Mul<f64> for DArray {
+    type Output = DArray;
+
+    fn mul(self, rhs: f64) -> Self::Output {
+        DArray::from(UnaryComp::new(self, MulConstFunc {cons: rhs}))
+    }
+}
+
+
 
 /// The identity function.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
@@ -471,4 +506,9 @@ mod tests {
     fn test_neg() {
         test_unary(|array| (&array).neg());
     }
+    #[test]
+    fn test_mul_const() {
+        test_unary(|array|array * 5.);
+    }
+
 }

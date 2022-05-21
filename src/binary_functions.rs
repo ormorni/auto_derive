@@ -3,7 +3,7 @@ use itertools::izip;
 
 use crate::computation::Computation;
 use crate::index_functions::expand_array;
-use crate::array::DArray;
+use crate::array::{DArray, DArrayRef};
 
 /// A computation handling pointwise addition of two arrays.
 #[derive(Clone)]
@@ -32,7 +32,6 @@ impl Computation for AddComp {
     }
 
     fn apply(&self, res_array: &mut [f64]) {
-        assert_eq!(res_array.len(), self.len());
         self.p1.comp().apply(res_array);
         self.p2.comp().apply(res_array);
     }
@@ -45,13 +44,13 @@ impl Computation for AddComp {
 impl <Other: Into<DArray>> Add<Other> for &DArray {
     type Output = DArray;
     fn add(self, rhs: Other) -> Self::Output {
-        DArray::from(AddComp::new(self.into(), rhs.into()))
+        DArray::from(AddComp::new(self.clone(), rhs.into()))
     }
 }
 impl <Other: Into<DArray>> Add<Other> for DArray {
     type Output = DArray;
     fn add(self, rhs: Other) -> Self::Output {
-        DArray::from(AddComp::new(self.into(), rhs.into()))
+        DArray::from(AddComp::new(self, rhs.into()))
     }
 }
 
@@ -108,20 +107,23 @@ impl Computation for MulComp {
     }
 }
 
-impl <Other: Into<DArray>> Mul<Other> for &DArray {
+impl <Other: DArrayRef> Mul<Other> for &DArray {
     type Output = DArray;
 
     fn mul(self, rhs: Other) -> Self::Output {
         DArray::from(MulComp::new(self.clone(), rhs.into()))
     }
 }
-impl <Other: Into<DArray>> Mul<Other> for DArray {
+impl <Other: DArrayRef> Mul<Other> for DArray {
     type Output = DArray;
 
     fn mul(self, rhs: Other) -> Self::Output {
         DArray::from(MulComp::new(self, rhs.into()))
     }
 }
+
+
+
 impl <Other: Into<DArray>> Div<Other> for DArray {
     type Output = DArray;
 

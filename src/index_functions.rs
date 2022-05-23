@@ -97,15 +97,15 @@ impl Computation for SumComp {
         vec![DArray::from(ExpandComp::new(res_grads, self.src.len()))]
     }
 
+    fn len(&self) -> usize {
+        1
+    }
+
     fn apply(&self, res_array: &mut [f64]) {
         assert_eq!(res_array.len(), 1);
         for v in self.src.data() {
             res_array[0] += v;
         }
-    }
-
-    fn len(&self) -> usize {
-        1
     }
 }
 
@@ -141,16 +141,16 @@ impl Computation for ExpandComp {
         vec![DArray::from(SumComp {src: res_grads})]
     }
 
+    fn len(&self) -> usize {
+        self.length
+    }
+
     fn apply(&self, res_array: &mut [f64]) {
         assert_eq!(res_array.len(), self.len());
         let src = self.src.data()[0];
         for i in res_array.iter_mut() {
             *i += src;
         }
-    }
-
-    fn len(&self) -> usize {
-        self.length
     }
 }
 
@@ -165,21 +165,9 @@ pub fn expand_array(src: DArray, tar_len: &DArray) -> DArray {
 
 #[cfg(test)]
 mod tests {
-    use rand::prelude::StdRng;
-    use rand::{Rng, SeedableRng};
     use crate::DArray;
+    use crate::test_utils::*;
 
-    const SEED: [u8; 32] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31];
-    const ALLOWED_ERROR: f64 = 1e-3;
-
-    /// Asserts that two floating point numbers are close to each other.
-    /// Tests that the ratio of the difference and the average is smaller than the allowed value.
-    fn assert_close(a: f64, b: f64) {
-        if a != b {
-            let error = (a - b).abs() * 2. / (a.abs() + b.abs());
-            assert!(error < ALLOWED_ERROR, "Values are not close: a={} b={} error={}", a, b, error);
-        }
-    }
 
     #[test]
     fn test_sum() {

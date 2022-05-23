@@ -7,10 +7,10 @@ pub trait Computation : 'static {
     fn sources(&self) -> Vec<DArray>;
     /// Calculates the derivatives of the computation by each of the parent arrays.
     fn derivatives(&self, res_grads: DArray) -> Vec<DArray>;
-    /// Calculates the function and adds the result to the given array.
-    fn apply(&self, res_array: &mut [f64]);
     /// The length of the result array.
     fn len(&self) -> usize;
+    /// Calculates the function and adds the result to the given array.
+    fn apply(&self, res_array: &mut [f64]);
 }
 
 /// A computation that does nothing.

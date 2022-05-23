@@ -434,24 +434,7 @@ impl DArray {
 mod tests {
     use std::ops::Neg;
     use crate::array::DArray;
-    use rand::prelude::{StdRng, Rng};
-    use rand::SeedableRng;
-
-    /// A seed for the RNG used to generate test cases.
-    const SEED: [u8; 32] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31];
-    /// The difference used in the analytic differentiation to test the libraries differentiation.
-    const DIFF: f64 = 1e-7;
-    /// The maximal allowed error in the results.
-    const ALLOWED_ERROR: f64 = 1e-3;
-
-    /// Asserts that two floating point numbers are close to each other.
-    /// Tests that the ratio of the difference and the average is smaller than the allowed value.
-    fn assert_close(a: f64, b: f64) {
-        if a != b {
-            let error = (a - b).abs() * 2. / (a.abs() + b.abs());
-            assert!(error < ALLOWED_ERROR, "Values are not close: a={} b={} error={}", a, b, error);
-        }
-    }
+    use crate::test_utils::*;
 
     /// Tests a generic unary function.
     fn test_unary(func: impl Fn(DArray) -> DArray) {

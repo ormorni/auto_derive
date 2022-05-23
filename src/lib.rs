@@ -5,12 +5,14 @@ pub mod array;
 pub mod unary_functions;
 pub mod binary_functions;
 pub mod index_functions;
+mod test_utils;
 
 pub use crate::array::DArray;
+pub use crate::index_functions::IndexComp;
 
 #[cfg(test)]
 mod tests {
-    use crate::index_functions::IndexComp;
+    use crate::IndexComp;
     use crate::DArray;
 
     #[test]

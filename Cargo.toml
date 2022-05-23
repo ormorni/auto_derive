@@ -9,3 +9,9 @@ edition = "2021"
 itertools = "*"
 fxhash = "*"
 rand = "*"
+criterion = "*"
+
+
+[[bench]]
+name = "benchmarks"
+harness = false

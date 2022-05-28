@@ -201,13 +201,6 @@ impl DArray {
     pub fn map(&self, op: impl DerivableOp) -> DArray {
         DArray::from(UnaryComp::new(self.clone(), op.clone()))
     }
-
-    pub fn fast_eval(&self) -> &Vec<f64> {
-        for arr in self.topological_sort().iter().rev() {
-            arr.data();
-        }
-        self.data()
-    }
 }
 
 impl Eq for DArrayInternal {}

@@ -39,10 +39,6 @@ fn computation(seed: &[u8; 32]) -> f64 {
     let (_, res) = random_graph(seed);
     res.data()[0]
 }
-fn fast_computation(seed: &[u8; 32]) -> f64 {
-    let (_, res) = random_graph(seed);
-    res.fast_eval()[0]
-}
 
 fn derivation(seed: &[u8; 32]) -> DArray {
     let (root, res) = random_graph(seed);
@@ -53,7 +49,6 @@ fn derivation(seed: &[u8; 32]) -> DArray {
 fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("graph_generation", |b| b.iter(|| random_graph(black_box(&SEED))));
     c.bench_function("graph_evaluation", |b| b.iter(|| computation(black_box(&SEED))));
-    c.bench_function("graph_fast_evaluation", |b| b.iter(|| fast_computation(black_box(&SEED))));
     c.bench_function("graph_derivation", |b| b.iter(|| derivation(black_box(&SEED))));
 }
 

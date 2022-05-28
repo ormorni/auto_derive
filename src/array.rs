@@ -26,6 +26,19 @@ struct DArrayInternal {
 }
 
 impl DArrayInternal {
+    /// Returns if the data in the DArrayInternal has been initialized yet.
+    fn is_initialized(&self) -> bool {
+        // Initializing.
+        unsafe {
+            self.data.read()
+                .unwrap()
+                .get()
+                .as_ref()
+                .unwrap()
+                .is_none()
+        }
+    }
+
     /// Gets the data of the internal array.
     fn data(&self) -> &Vec<f64> {
         // Initializing.
@@ -114,7 +127,7 @@ impl DArray {
     /// To ensure correct derivations, the backpropagation has to be called on all arrays using a
     /// given array before being called on it. The topological sorting ensures that the calls to the backpropagation
     /// satisfies this requirement.
-    fn topological_sort(&self) -> Vec<DArray> {
+    pub fn topological_sort(&self) -> Vec<DArray> {
         // Topologically sorting the required arrays of the computation graph.
         let mut parent_count = Map::default();
         let mut queue = vec![self.clone()];
@@ -187,6 +200,13 @@ impl DArray {
     /// Maps the array using a derivable function.
     pub fn map(&self, op: impl DerivableOp) -> DArray {
         DArray::from(UnaryComp::new(self.clone(), op.clone()))
+    }
+
+    pub fn fast_eval(&self) -> &Vec<f64> {
+        for arr in self.topological_sort().iter().rev() {
+            arr.data();
+        }
+        self.data()
     }
 }
 

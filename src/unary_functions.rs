@@ -33,34 +33,8 @@ impl<Op: DerivableOp> UnaryComp<Op> {
     pub fn new(src: DArray, op: Op) -> UnaryComp<Op> {
         UnaryComp {src, op}
     }
-
-    /// Applies the computation to the target array, without performing any complex logic.
-    fn apply_direct(&self, res_array: &mut [f64]) {
-        for (res, data) in izip!(res_array.iter_mut(), self.src.data().iter()) {
-            *res += self.op.apply(data);
-        }
-    }
 }
 
-/// A trait for computations which perform the map operation on single elements.
-pub trait UnaryCompGeneric {
-    /// Maps the values in-place.
-    fn map_in_place(&self, res_array: &mut [f64]);
-    /// Returns the source of the Mapper.
-    fn source(&self) -> &DArray;
-}
-
-impl <Op> UnaryCompGeneric for UnaryComp<Op> where Op: DerivableOp {
-    fn map_in_place(&self, res_array: &mut [f64]) {
-        for val in res_array.iter_mut() {
-            *val = self.op.apply(val);
-        }
-    }
-
-    fn source(&self) -> &DArray {
-        &self.src
-    }
-}
 
 impl<Op: DerivableOp> Computation for UnaryComp<Op> {
     fn sources(&self) -> Vec<DArray> {
@@ -76,23 +50,20 @@ impl<Op: DerivableOp> Computation for UnaryComp<Op> {
     }
 
     fn apply(&self, res_array: &mut [f64]) {
-        // // If the source of the unary computation is already initialized, there is no need for anything complex.
-        // if self.src.is_initialized() {
-        //     self.apply_direct(res_array);
-        //     return;
-        // }
-        // // If the source is not an unary computation, we just apply the function directly.
-        // match self.src.comp().get_type() {
-        //     ComputationType::Unary(_) => {}
-        //     _ => {self.apply_direct(res_array); return}
-        // }
-        //
-        // // If the source is an unary computation, we can save allocations by mapping the data several times in the same array.
-        //
-        // for (res, data) in izip!(res_array.iter_mut(), self.src.data().iter()) {
-        //     *res += self.op.apply(data);
-        // }
-        self.apply_direct(res_array)
+        for (res, data) in izip!(res_array.iter_mut(), self.src.data().iter()) {
+            *res += self.op.apply(data);
+        }
+    }
+
+    fn apply_on_zero(&self, res_array: &mut [f64]) {
+        if self.src.is_initialized() {
+            self.apply(res_array);
+        } else {
+            self.src.comp().apply_on_zero(res_array);
+            for v in res_array.iter_mut() {
+                *v = self.op.apply(v);
+            }
+        }
     }
 }
 

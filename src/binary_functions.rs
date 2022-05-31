@@ -57,6 +57,33 @@ impl Computation for AddComp {
     fn get_type(&self) -> ComputationType {
         ComputationType::Add
     }
+
+    /// Applies addition on a zero array. Propagates the "apply on zero" to an uninitialized array if possible.
+    fn apply_on_zero(&self, res_array: &mut [f64]) {
+        match (self.p1.is_initialized(), self.p2.is_initialized()) {
+            (true, true) => {
+                for (res, i, j) in izip!(res_array.iter_mut(), self.p1.data(), self.p2.data()) {
+                    *res += i + j;
+                }
+            }
+            (true, false) => {
+                self.p2.comp().apply_on_zero(res_array);
+                for (res, i) in izip!(res_array.iter_mut(), self.p1.data()) {
+                    *res += i;
+                }
+            }
+            (false, true) => {
+                self.p1.comp().apply_on_zero(res_array);
+                for (res, i) in izip!(res_array.iter_mut(), self.p2.data()) {
+                    *res += i;
+                }
+            }
+            (false, false) => {
+                self.p1.comp().apply_on_zero(res_array);
+                self.p2.comp().apply(res_array);
+            }
+        }
+    }
 }
 
 impl <Other: Into<DArray>> Add<Other> for &DArray {
@@ -112,7 +139,7 @@ impl Computation for MulComp {
             &self.p1 * &res_grads,
         ]
     }
-
+    
     fn len(&self) -> usize {
         self.p1.len()
     }
@@ -121,6 +148,24 @@ impl Computation for MulComp {
         assert_eq!(res_array.len(), self.len());
         for (res, p1, p2) in izip!(res_array.iter_mut(), self.p1.data().iter(), self.p2.data().iter()) {
             *res += p1 * p2;
+        }
+    }
+
+    fn get_type(&self) -> ComputationType {
+        ComputationType::Binary
+    }
+    
+    fn apply_on_zero(&self, res_array: &mut [f64]) {
+        if !self.p1.is_initialized() {
+            self.p1.comp().apply_on_zero(res_array);
+            for (v1, v2) in izip!(res_array.iter_mut(), self.p2.data().iter()) {
+                *v1 *= v2;
+            }
+        } else {
+            self.p2.comp().apply_on_zero(res_array);
+            for (v1, v2) in izip!(res_array.iter_mut(), self.p1.data().iter()) {
+                *v1 *= v2;
+            }
         }
     }
 }

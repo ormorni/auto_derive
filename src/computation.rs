@@ -1,12 +1,11 @@
 use crate::array::DArray;
-use crate::unary_functions::UnaryCompGeneric;
 
 /// Useful metadata for computations. Used to unwrap the types of computations
 /// and do more complex graph analysis.
 pub enum ComputationType {
     Add,
     Binary,
-    Unary(Box<dyn UnaryCompGeneric>),
+    Unary,
     Other,
 }
 
@@ -24,6 +23,10 @@ pub trait Computation : 'static {
     /// Returns the type of the computation. The default implementation is the Other type, which gives no information.
     fn get_type(&self) -> ComputationType {
         ComputationType::Other
+    }
+    /// Calculates the function on an array which is initialized to zero. Used to reduce allocations.
+    fn apply_on_zero(&self, res_array: &mut [f64]) {
+        self.apply(res_array);
     }
 }
 

@@ -43,7 +43,7 @@ impl DArrayInternal {
                 let data = guard.get_mut();
                 if data.is_none() {
                     *data = Some(vec![0.; self.comp.len()]);
-                    self.comp.apply(data.as_mut().unwrap());
+                    self.comp.apply_on_zero(data.as_mut().unwrap());
                 }
             }
 
@@ -107,72 +107,72 @@ impl DArray {
 
     /// Returns a reference to the array's data.
     pub fn data(&self) -> &Vec<f64> {
-        // Preparing a dictionary of how many nodes use each node.
-        let mut parent_count = Map::default();
-        let mut queue = vec![self.clone()];
-        let mut idx = 0;
-        parent_count.insert(self.clone(), 0);
-        while idx < queue.len() {
-            if !queue[idx].is_initialized() {
-                for array in queue[idx].comp().sources() {
-                    if !parent_count.contains_key(&array) {
-                        parent_count.insert(array.clone(), 0);
-                        queue.push(array.clone());
-                    }
-                    *parent_count.get_mut(&array).unwrap() += 1;
-                }
-            }
-            idx += 1;
-        }
-
-        // The nodes that should be evaluated are:
-        // * All nodes with two parents, since then the calculation can be reused.
-        // * All binary nodes whose parent isn't an AddComp, since AddComps can avoid evaluating their children.
-
-        let multiple_parents: FxHashSet<DArray> = parent_count.iter().filter_map(|(arr, parent_count)| if *parent_count != 1 {Some(arr)} else {None}).cloned().collect();
-        let mut non_added_binaries = FxHashSet::default();
-
-        for node in parent_count.keys() {
-            if node.is_initialized() {
-                continue;
-            }
-            match node.comp().get_type() {
-                ComputationType::Add => {},
-                _ => {
-                    for child_node in node.comp().sources() {
-                        match child_node.comp().get_type() {
-                            ComputationType::Unary(_) => {}
-                            _ => {
-                                non_added_binaries.insert(child_node);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        let evaluated_nodes: FxHashSet<DArray> = multiple_parents.union(&non_added_binaries).cloned().collect();
-
-        // Adding all nodes that aren't used by any nodes not in the result list.
-        let mut res = vec![self.clone()];
-        let mut idx = 0;
-        while idx < res.len() {
-            if !res[idx].is_initialized() {
-                for array in res[idx].comp().sources() {
-                    *parent_count.get_mut(&array).unwrap() -= 1;
-                    if *parent_count.get_mut(&array).unwrap() == 0 {
-                        res.push(array);
-                    }
-                }
-            }
-            idx += 1;
-        }
-
-        for node in res.iter().rev() {
-            if evaluated_nodes.contains(node) {
-                node.internal.data();
-            }
-        }
+        // // Preparing a dictionary of how many nodes use each node.
+        // let mut parent_count = Map::default();
+        // let mut queue = vec![self.clone()];
+        // let mut idx = 0;
+        // parent_count.insert(self.clone(), 0);
+        // while idx < queue.len() {
+        //     if !queue[idx].is_initialized() {
+        //         for array in queue[idx].comp().sources() {
+        //             if !parent_count.contains_key(&array) {
+        //                 parent_count.insert(array.clone(), 0);
+        //                 queue.push(array.clone());
+        //             }
+        //             *parent_count.get_mut(&array).unwrap() += 1;
+        //         }
+        //     }
+        //     idx += 1;
+        // }
+        //
+        // // The nodes that should be evaluated are:
+        // // * All nodes with two parents, since then the calculation can be reused.
+        // // * All binary nodes whose parent isn't an AddComp, since AddComps can avoid evaluating their children.
+        //
+        // let multiple_parents: FxHashSet<DArray> = parent_count.iter().filter_map(|(arr, parent_count)| if *parent_count != 1 {Some(arr)} else {None}).cloned().collect();
+        // let mut non_added_binaries = FxHashSet::default();
+        //
+        // for node in parent_count.keys() {
+        //     if node.is_initialized() {
+        //         continue;
+        //     }
+        //     match node.comp().get_type() {
+        //         ComputationType::Add => {},
+        //         _ => {
+        //             for child_node in node.comp().sources() {
+        //                 match child_node.comp().get_type() {
+        //                     ComputationType::Unary => {}
+        //                     _ => {
+        //                         non_added_binaries.insert(child_node);
+        //                     }
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
+        //
+        // let evaluated_nodes: FxHashSet<DArray> = multiple_parents.union(&non_added_binaries).cloned().collect();
+        //
+        // // Adding all nodes that aren't used by any nodes not in the result list.
+        // let mut res = vec![self.clone()];
+        // let mut idx = 0;
+        // while idx < res.len() {
+        //     if !res[idx].is_initialized() {
+        //         for array in res[idx].comp().sources() {
+        //             *parent_count.get_mut(&array).unwrap() -= 1;
+        //             if *parent_count.get_mut(&array).unwrap() == 0 {
+        //                 res.push(array);
+        //             }
+        //         }
+        //     }
+        //     idx += 1;
+        // }
+        //
+        // for node in res.iter().rev() {
+        //     if evaluated_nodes.contains(node) {
+        //         node.internal.data();
+        //     }
+        // }
 
         self.internal.data()
     }

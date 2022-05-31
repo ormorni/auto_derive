@@ -1,5 +1,5 @@
 use std::cell::UnsafeCell;
-use crate::computation::{Computation, FromDataComp};
+use crate::computation::{Computation, ComputationType, FromDataComp};
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::sync::{Arc, RwLock};
@@ -56,6 +56,12 @@ impl DArrayInternal {
                 .unwrap()
         }
     }
+    /// Checks if the data in the DArrayInternal is initialized.
+    fn is_init(&self) -> bool {
+        unsafe {
+            self.data.read().unwrap().get().as_ref().unwrap().is_some()
+        }
+    }
 }
 
 unsafe impl Sync for DArray {}
@@ -101,6 +107,45 @@ impl DArray {
 
     /// Returns a reference to the array's data.
     pub fn data(&self) -> &Vec<f64> {
+        // Preparing a dictionary of how many nodes use each node.
+        let mut parent_count = Map::default();
+        let mut queue = vec![self.clone()];
+        let mut idx = 0;
+        parent_count.insert(self.clone(), 0);
+        while idx < queue.len() {
+            if !queue[idx].internal.is_init() {
+                for array in queue[idx].comp().sources() {
+                    if !parent_count.contains_key(&array) {
+                        parent_count.insert(array.clone(), 0);
+                        queue.push(array.clone());
+                    }
+                    *parent_count.get_mut(&array).unwrap() += 1;
+                }
+            }
+            idx += 1;
+        }
+        // Adding all nodes that aren't used by any nodes not in the result list.
+        let mut res = vec![self.clone()];
+        let mut idx = 0;
+        while idx < res.len() {
+            if !res[idx].internal.is_init() {
+                for array in res[idx].comp().sources() {
+                    *parent_count.get_mut(&array).unwrap() -= 1;
+                    if *parent_count.get_mut(&array).unwrap() == 0 {
+                        res.push(array);
+                    }
+                }
+            }
+            idx += 1;
+        }
+
+        for node in res.iter().rev() {
+            match node.comp().get_type() {
+                ComputationType::Add => {}
+                ComputationType::Other => {node.internal.data();}
+            }
+        }
+
         self.internal.data()
     }
 

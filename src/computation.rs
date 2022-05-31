@@ -1,5 +1,12 @@
 use crate::array::DArray;
 
+/// Useful metadata for computations. Used to unwrap the types of computations
+/// and do more complex graph analysis.
+pub enum ComputationType {
+    Add,
+    Other,
+}
+
 /// A trait representing the computations which were used to generate arrays in the computation graph.
 /// Used to perform the backward propagation.
 pub trait Computation : 'static {
@@ -11,6 +18,10 @@ pub trait Computation : 'static {
     fn len(&self) -> usize;
     /// Calculates the function and adds the result to the given array.
     fn apply(&self, res_array: &mut [f64]);
+    /// Returns the type of the computation. The default implementation is the Other type, which gives no information.
+    fn get_type(&self) -> ComputationType {
+        ComputationType::Other
+    }
 }
 
 /// A computation that does nothing.
@@ -28,12 +39,12 @@ impl Computation for NullComp {
         vec![]
     }
 
-    fn apply(&self, _: &mut [f64]) {}
-
     /// The null computation can't generate a length, and can't reproduce its data.
     fn len(&self) -> usize {
         panic!()
     }
+
+    fn apply(&self, _: &mut [f64]) {}
 }
 
 #[derive(Clone)]
@@ -50,16 +61,15 @@ impl Computation for FromDataComp {
         vec![]
     }
 
+    fn len(&self) -> usize {
+        self.data.len()
+    }
+
     fn apply(&self, res: &mut [f64]) {
         assert_eq!(self.data.len(), res.len());
         for i in 0..self.len() {
             res[i] += self.data[i];
         }
-    }
-
-    /// The null computation can't generate a length, and can't reproduce its data.
-    fn len(&self) -> usize {
-        self.data.len()
     }
 }
 

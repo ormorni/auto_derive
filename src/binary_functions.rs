@@ -1,7 +1,7 @@
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use itertools::izip;
 
-use crate::computation::Computation;
+use crate::computation::{Computation, ComputationType};
 use crate::index_functions::expand_array;
 use crate::array::{DArray, DArrayRef};
 
@@ -31,13 +31,17 @@ impl Computation for AddComp {
         vec![res_grads.clone(), res_grads.clone()]
     }
 
+    fn len(&self) -> usize {
+        self.p1.len()
+    }
+
     fn apply(&self, res_array: &mut [f64]) {
         self.p1.comp().apply(res_array);
         self.p2.comp().apply(res_array);
     }
 
-    fn len(&self) -> usize {
-        self.p1.len()
+    fn get_type(&self) -> ComputationType {
+        ComputationType::Add
     }
 }
 
@@ -95,15 +99,15 @@ impl Computation for MulComp {
         ]
     }
 
+    fn len(&self) -> usize {
+        self.p1.len()
+    }
+
     fn apply(&self, res_array: &mut [f64]) {
         assert_eq!(res_array.len(), self.len());
         for (res, p1, p2) in izip!(res_array.iter_mut(), self.p1.data().iter(), self.p2.data().iter()) {
             *res += p1 * p2;
         }
-    }
-
-    fn len(&self) -> usize {
-        self.p1.len()
     }
 }
 

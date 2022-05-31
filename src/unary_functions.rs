@@ -4,7 +4,7 @@ use itertools::izip;
 /// To make implementing unary functions simpler,
 /// the trait DerivableOp allows easy definition of derivable functions,
 /// which can then be used with UnaryComp.
-use crate::computation::Computation;
+use crate::computation::{Computation, ComputationType};
 use crate::array::{DArray, DArrayRef};
 
 /// A trait for derivable functions.
@@ -17,6 +17,86 @@ pub trait DerivableOp : Clone + 'static {
     /// Calculates the derivative of the function.
     fn derivative(&self) -> Self::Derivative;
 }
+
+
+/// A computation handling generic differentiable functions applied pointwise to arrays.
+#[derive(Clone)]
+pub struct UnaryComp<Op: DerivableOp> {
+    /// The parent array.
+    src: DArray,
+    /// The function applied to the array.
+    op: Op,
+}
+
+impl<Op: DerivableOp> UnaryComp<Op> {
+    /// Initializes a new unary computation object.
+    pub fn new(src: DArray, op: Op) -> UnaryComp<Op> {
+        UnaryComp {src, op}
+    }
+
+    /// Applies the computation to the target array, without performing any complex logic.
+    fn apply_direct(&self, res_array: &mut [f64]) {
+        for (res, data) in izip!(res_array.iter_mut(), self.src.data().iter()) {
+            *res += self.op.apply(data);
+        }
+    }
+}
+
+/// A trait for computations which perform the map operation on single elements.
+pub trait UnaryCompGeneric {
+    /// Maps the values in-place.
+    fn map_in_place(&self, res_array: &mut [f64]);
+    /// Returns the source of the Mapper.
+    fn source(&self) -> &DArray;
+}
+
+impl <Op> UnaryCompGeneric for UnaryComp<Op> where Op: DerivableOp {
+    fn map_in_place(&self, res_array: &mut [f64]) {
+        for val in res_array.iter_mut() {
+            *val = self.op.apply(val);
+        }
+    }
+
+    fn source(&self) -> &DArray {
+        &self.src
+    }
+}
+
+impl<Op: DerivableOp> Computation for UnaryComp<Op> {
+    fn sources(&self) -> Vec<DArray> {
+        vec![self.src.clone()]
+    }
+
+    fn derivatives(&self, res_grads: DArray) -> Vec<DArray> {
+        vec![self.src.map(self.op.derivative()) * res_grads]
+    }
+
+    fn len(&self) -> usize {
+        self.src.len()
+    }
+
+    fn apply(&self, res_array: &mut [f64]) {
+        // // If the source of the unary computation is already initialized, there is no need for anything complex.
+        // if self.src.is_initialized() {
+        //     self.apply_direct(res_array);
+        //     return;
+        // }
+        // // If the source is not an unary computation, we just apply the function directly.
+        // match self.src.comp().get_type() {
+        //     ComputationType::Unary(_) => {}
+        //     _ => {self.apply_direct(res_array); return}
+        // }
+        //
+        // // If the source is an unary computation, we can save allocations by mapping the data several times in the same array.
+        //
+        // for (res, data) in izip!(res_array.iter_mut(), self.src.data().iter()) {
+        //     *res += self.op.apply(data);
+        // }
+        self.apply_direct(res_array)
+    }
+}
+
+
 
 /// A function returning zero.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
@@ -264,42 +344,6 @@ impl DerivableOp for CosFunc {
         SinFunc {
             sign_flip: !self.sign_flip,
         }
-    }
-}
-
-/// A computation handling generic differentiable functions applied pointwise to arrays.
-#[derive(Clone)]
-pub struct UnaryComp<Op: DerivableOp> {
-    /// The parent array.
-    src: DArray,
-    /// The function applied to the array.
-    op: Op,
-}
-
-impl<Op: DerivableOp> UnaryComp<Op> {
-    /// Initializes a new unary computation object.
-    pub fn new(src: DArray, op: Op) -> UnaryComp<Op> {
-        UnaryComp {src, op}
-    }
-}
-
-impl<Op: DerivableOp> Computation for UnaryComp<Op> {
-    fn sources(&self) -> Vec<DArray> {
-        vec![self.src.clone()]
-    }
-
-    fn derivatives(&self, res_grads: DArray) -> Vec<DArray> {
-        vec![self.src.map(self.op.derivative()) * res_grads]
-    }
-
-    fn apply(&self, res_array: &mut [f64]) {
-        for (res, data) in izip!(res_array.iter_mut(), self.src.data().iter()) {
-            *res += self.op.apply(data);
-        }
-    }
-
-    fn len(&self) -> usize {
-        self.src.len()
     }
 }
 

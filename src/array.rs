@@ -3,7 +3,7 @@ use crate::computation::{Computation, ComputationType, FromDataComp};
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::sync::{Arc, RwLock};
-use fxhash::FxHashMap;
+use fxhash::{FxHashMap, FxHashSet};
 use itertools::izip;
 use rand::Rng;
 use crate::unary_functions::{DerivableOp, UnaryComp};
@@ -113,7 +113,7 @@ impl DArray {
         let mut idx = 0;
         parent_count.insert(self.clone(), 0);
         while idx < queue.len() {
-            if !queue[idx].internal.is_init() {
+            if !queue[idx].is_initialized() {
                 for array in queue[idx].comp().sources() {
                     if !parent_count.contains_key(&array) {
                         parent_count.insert(array.clone(), 0);
@@ -124,11 +124,40 @@ impl DArray {
             }
             idx += 1;
         }
+
+        // The nodes that should be evaluated are:
+        // * All nodes with two parents, since then the calculation can be reused.
+        // * All binary nodes whose parent isn't an AddComp, since AddComps can avoid evaluating their children.
+
+        let multiple_parents: FxHashSet<DArray> = parent_count.iter().filter_map(|(arr, parent_count)| if *parent_count != 1 {Some(arr)} else {None}).cloned().collect();
+        let mut non_added_binaries = FxHashSet::default();
+
+        for node in parent_count.keys() {
+            if node.is_initialized() {
+                continue;
+            }
+            match node.comp().get_type() {
+                ComputationType::Add => {},
+                _ => {
+                    for child_node in node.comp().sources() {
+                        match child_node.comp().get_type() {
+                            ComputationType::Unary(_) => {}
+                            _ => {
+                                non_added_binaries.insert(child_node);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        let evaluated_nodes: FxHashSet<DArray> = multiple_parents.union(&non_added_binaries).cloned().collect();
+
         // Adding all nodes that aren't used by any nodes not in the result list.
         let mut res = vec![self.clone()];
         let mut idx = 0;
         while idx < res.len() {
-            if !res[idx].internal.is_init() {
+            if !res[idx].is_initialized() {
                 for array in res[idx].comp().sources() {
                     *parent_count.get_mut(&array).unwrap() -= 1;
                     if *parent_count.get_mut(&array).unwrap() == 0 {
@@ -140,9 +169,8 @@ impl DArray {
         }
 
         for node in res.iter().rev() {
-            match node.comp().get_type() {
-                ComputationType::Add => {}
-                ComputationType::Other => {node.internal.data();}
+            if evaluated_nodes.contains(node) {
+                node.internal.data();
             }
         }
 
@@ -159,7 +187,7 @@ impl DArray {
     /// To ensure correct derivations, the backpropagation has to be called on all arrays using a
     /// given array before being called on it. The topological sorting ensures that the calls to the backpropagation
     /// satisfies this requirement.
-    fn topological_sort(&self) -> Vec<DArray> {
+    pub fn topological_sort(&self) -> Vec<DArray> {
         // Topologically sorting the required arrays of the computation graph.
         let mut parent_count = Map::default();
         let mut queue = vec![self.clone()];
@@ -232,6 +260,10 @@ impl DArray {
     /// Maps the array using a derivable function.
     pub fn map(&self, op: impl DerivableOp) -> DArray {
         DArray::from(UnaryComp::new(self.clone(), op.clone()))
+    }
+
+    pub fn is_initialized(&self) -> bool {
+        self.internal.is_init()
     }
 }
 

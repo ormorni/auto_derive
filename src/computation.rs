@@ -1,9 +1,12 @@
 use crate::array::DArray;
+use crate::unary_functions::UnaryCompGeneric;
 
 /// Useful metadata for computations. Used to unwrap the types of computations
 /// and do more complex graph analysis.
 pub enum ComputationType {
     Add,
+    Binary,
+    Unary(Box<dyn UnaryCompGeneric>),
     Other,
 }
 

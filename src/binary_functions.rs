@@ -36,8 +36,22 @@ impl Computation for AddComp {
     }
 
     fn apply(&self, res_array: &mut [f64]) {
-        self.p1.comp().apply(res_array);
-        self.p2.comp().apply(res_array);
+        if self.p1.is_initialized() {
+            let data = self.p1.data();
+            for i in 0..self.len() {
+                res_array[i] += data[i];
+            }
+        } else {
+            self.p1.comp().apply(res_array);
+        }
+        if self.p2.is_initialized() {
+            let data = self.p2.data();
+            for i in 0..self.len() {
+                res_array[i] += data[i];
+            }
+        } else {
+            self.p2.comp().apply(res_array);
+        }
     }
 
     fn get_type(&self) -> ComputationType {

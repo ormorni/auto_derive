@@ -187,14 +187,14 @@ impl <Other: DArrayRef> Mul<Other> for DArray {
 
 
 
-impl <Other: Into<DArray>> Div<Other> for DArray {
+impl <Other: DArrayRef> Div<Other> for DArray {
     type Output = DArray;
 
     fn div(self, rhs: Other) -> Self::Output {
         DArray::from(MulComp::new(self, rhs.into().powi(-1)))
     }
 }
-impl <Other: Into<DArray>> Div<Other> for &DArray {
+impl <Other: DArrayRef> Div<Other> for &DArray {
     type Output = DArray;
 
     fn div(self, rhs: Other) -> Self::Output {

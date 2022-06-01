@@ -1,4 +1,4 @@
-use std::ops::{Mul, Neg};
+use std::ops::{Div, Mul, Neg};
 use itertools::izip;
 /// Implementation of unary functions for the array.
 /// To make implementing unary functions simpler,
@@ -133,6 +133,22 @@ impl Mul<f64> for DArray {
 
     fn mul(self, rhs: f64) -> Self::Output {
         DArray::from(UnaryComp::new(self, MulConstFunc {cons: rhs}))
+    }
+}
+
+impl Div<f64> for &DArray {
+    type Output = DArray;
+
+    fn div(self, rhs: f64) -> Self::Output {
+        DArray::from(UnaryComp::new(self.clone(), MulConstFunc {cons: rhs.recip()}))
+    }
+}
+
+impl Div<f64> for DArray {
+    type Output = DArray;
+
+    fn div(self, rhs: f64) -> Self::Output {
+        DArray::from(UnaryComp::new(self, MulConstFunc {cons: rhs.recip()}))
     }
 }
 
@@ -508,5 +524,8 @@ mod tests {
     fn test_mul_const() {
         test_unary(|array|array * 5.);
     }
-
+    #[test]
+    fn test_div_const() {
+        test_unary(|array|array / 5.);
+    }
 }

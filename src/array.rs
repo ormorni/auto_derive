@@ -123,8 +123,6 @@ impl DArray {
         //
         // In addition, nodes with two or more parents should always be evaluated, to prevent evaluating them twice.
 
-
-
         // Counting the number of parents of each node.
         let mut parent_count = FxHashMap::default();
         parent_count.insert(self.clone(), 0);
@@ -195,6 +193,7 @@ impl DArray {
                             is_applied_on_zero.insert(sources[1].clone());
                         } else {
                             is_applied_on_zero.insert(sources[0].clone());
+                            is_allocated.insert(sources[1].clone());
                         }
                     } else {
                         for node in sources.iter() {
@@ -207,7 +206,7 @@ impl DArray {
                     is_applied_on_zero.insert(sources[0].clone());
                     assert_eq!(sources.len(), 1);
                     // Unary are allocated if they are not applied on zero.
-                    if !is_applied_on_zero.contains(node) {
+                    if !on_zero {
                         is_allocated.insert(node.clone());
                     }
                 }

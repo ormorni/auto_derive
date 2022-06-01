@@ -107,123 +107,123 @@ impl DArray {
 
     /// Returns a reference to the array's data.
     pub fn data(&self) -> &Vec<f64> {
-        // // If the node is already initialized, we return the data and require no further computations.
-        // if self.is_initialized() {
-        //     return self.internal.data();
-        // }
+        // If the node is already initialized, we return the data and require no further computations.
+        if self.is_initialized() {
+            return self.internal.data();
+        }
+
+        // The function selects a subset of the parent nodes of the given node, and calls `.data()` on them.
+        // This reduces the number of recursive calls to the function in the internal .data() .
+        // However, calling the function interferes with the allocation-reducing mechanism, so it should be minimized.
+        // The functions that call .data() are:
+        // * Unary, when called not on zero.
+        // * Binary. When called normally allocate twice, when called on zero allocate once.
+        // * Other. Perform no optimization, and always allocate all their child nodes.
+        // Additions never allocate, but may propagate the call on zero.
         //
-        // // The function selects a subset of the parent nodes of the given node, and calls `.data()` on them.
-        // // This reduces the number of recursive calls to the function in the internal .data() .
-        // // However, calling the function interferes with the allocation-reducing mechanism, so it should be minimized.
-        // // The functions that call .data() are:
-        // // * Unary, when called not on zero.
-        // // * Binary. When called normally allocate twice, when called on zero allocate once.
-        // // * Other. Perform no optimization, and always allocate all their child nodes.
-        // // Additions never allocate, but may propagate the call on zero.
-        // //
-        // // In addition, nodes with two or more parents should always be evaluated, to prevent evaluating them twice.
-        //
-        // // Counting the number of parents of each node.
-        // let mut parent_count = FxHashMap::default();
-        // parent_count.insert(self.clone(), 0);
-        //
-        // let mut queue = vec![self.clone()];
-        // let mut idx = 0;
-        // while idx < queue.len() {
-        //     let node = &queue[idx];
-        //     idx += 1;
-        //
-        //     for child_node in node.comp().sources() {
-        //         if child_node.is_initialized() {
-        //             continue;
-        //         }
-        //         if !parent_count.contains_key(&child_node) {
-        //             queue.push(child_node.clone());
-        //             parent_count.insert(child_node.clone(), 0);
-        //         }
-        //         *parent_count.get_mut(&child_node).unwrap() += 1;
-        //     }
-        // }
-        //
-        // // Initializing is_allocated with all nodes with more than one parent.
-        // let mut is_allocated: FxHashSet<DArray> = parent_count.iter().filter_map(|(node, &par_count)|if par_count > 1 {Some(node)} else {None}).cloned().collect();
-        // let mut is_applied_on_zero = FxHashSet::default();
-        //
-        // // Topological sorting.
-        // let mut topo = vec![self.clone()];
-        // let mut idx = 0;
-        // while idx < topo.len() {
-        //     let node = &topo[idx];
-        //     idx += 1;
-        //
-        //     for child_node in node.comp().sources() {
-        //         if child_node.is_initialized() {
-        //             continue;
-        //         }
-        //
-        //         let par_count = parent_count.get_mut(&child_node).unwrap();
-        //         *par_count -= 1;
-        //         if *par_count == 0 {
-        //             topo.push(child_node);
-        //         }
-        //     }
-        // }
-        //
-        // for node in topo.iter() {
-        //     let sources = node.comp().sources();
-        //     let on_zero = is_allocated.contains(node) || is_applied_on_zero.contains(node);
-        //
-        //     match node.comp().get_type() {
-        //         // Additions never allocate, and propagate applies on zero.
-        //         ComputationType::Add => {
-        //             assert_eq!(sources.len(), 2);
-        //             if on_zero {
-        //                 if is_allocated.contains(&sources[0]) {
-        //                     is_applied_on_zero.insert(sources[1].clone());
-        //                 } else {
-        //                     is_applied_on_zero.insert(sources[0].clone());
-        //                 }
-        //             }
-        //         }
-        //         // Binaries applied on zero allocate one of their children, and otherwise both.
-        //         ComputationType::Binary => {
-        //             assert_eq!(sources.len(), 2);
-        //             if on_zero {
-        //                 if is_allocated.contains(&sources[0]) {
-        //                     is_applied_on_zero.insert(sources[1].clone());
-        //                 } else {
-        //                     is_applied_on_zero.insert(sources[0].clone());
-        //                     is_allocated.insert(sources[1].clone());
-        //                 }
-        //             } else {
-        //                 for node in sources.iter() {
-        //                     is_allocated.insert(node.clone());
-        //                 }
-        //             }
-        //         }
-        //         // Unaries always apply their child node on zero. They allocate if they are not applied on zero.
-        //         ComputationType::Unary => {
-        //             is_applied_on_zero.insert(sources[0].clone());
-        //             assert_eq!(sources.len(), 1);
-        //             // Unary are allocated if they are not applied on zero.
-        //             if !on_zero {
-        //                 is_allocated.insert(node.clone());
-        //             }
-        //         }
-        //         // Other type allocate all their child nodes.
-        //         ComputationType::Other => {
-        //             for node in sources {
-        //                 is_allocated.insert(node);
-        //             }
-        //         }
-        //     }
-        // }
-        //
-        // for node in topo.iter().rev() {
-        //     if is_allocated.contains(node) {
-        //         node.internal.data();
-        //     }
-        // }
+        // In addition, nodes with two or more parents should always be evaluated, to prevent evaluating them twice.
+
+        // Counting the number of parents of each node.
+        let mut parent_count = FxHashMap::default();
+        parent_count.insert(self.clone(), 0);
+
+        let mut queue = vec![self.clone()];
+        let mut idx = 0;
+        while idx < queue.len() {
+            let node = &queue[idx];
+            idx += 1;
+
+            for child_node in node.comp().sources() {
+                if child_node.is_initialized() {
+                    continue;
+                }
+                if !parent_count.contains_key(&child_node) {
+                    queue.push(child_node.clone());
+                    parent_count.insert(child_node.clone(), 0);
+                }
+                *parent_count.get_mut(&child_node).unwrap() += 1;
+            }
+        }
+
+        // Initializing is_allocated with all nodes with more than one parent.
+        let mut is_allocated: FxHashSet<DArray> = parent_count.iter().filter_map(|(node, &par_count)|if par_count > 1 {Some(node)} else {None}).cloned().collect();
+        let mut is_applied_on_zero = FxHashSet::default();
+
+        // Topological sorting.
+        let mut topo = vec![self.clone()];
+        let mut idx = 0;
+        while idx < topo.len() {
+            let node = &topo[idx];
+            idx += 1;
+
+            for child_node in node.comp().sources() {
+                if child_node.is_initialized() {
+                    continue;
+                }
+
+                let par_count = parent_count.get_mut(&child_node).unwrap();
+                *par_count -= 1;
+                if *par_count == 0 {
+                    topo.push(child_node);
+                }
+            }
+        }
+
+        for node in topo.iter() {
+            let sources = node.comp().sources();
+            let on_zero = is_allocated.contains(node) || is_applied_on_zero.contains(node);
+
+            match node.comp().get_type() {
+                // Additions never allocate, and propagate applies on zero.
+                ComputationType::Add => {
+                    assert_eq!(sources.len(), 2);
+                    if on_zero {
+                        if is_allocated.contains(&sources[0]) {
+                            is_applied_on_zero.insert(sources[1].clone());
+                        } else {
+                            is_applied_on_zero.insert(sources[0].clone());
+                        }
+                    }
+                }
+                // Binaries applied on zero allocate one of their children, and otherwise both.
+                ComputationType::Binary => {
+                    assert_eq!(sources.len(), 2);
+                    if on_zero {
+                        if is_allocated.contains(&sources[0]) {
+                            is_applied_on_zero.insert(sources[1].clone());
+                        } else {
+                            is_applied_on_zero.insert(sources[0].clone());
+                            is_allocated.insert(sources[1].clone());
+                        }
+                    } else {
+                        for node in sources.iter() {
+                            is_allocated.insert(node.clone());
+                        }
+                    }
+                }
+                // Unaries always apply their child node on zero. They allocate if they are not applied on zero.
+                ComputationType::Unary => {
+                    is_applied_on_zero.insert(sources[0].clone());
+                    assert_eq!(sources.len(), 1);
+                    // Unary are allocated if they are not applied on zero.
+                    if !on_zero {
+                        is_allocated.insert(node.clone());
+                    }
+                }
+                // Other type allocate all their child nodes.
+                ComputationType::Other => {
+                    for node in sources {
+                        is_allocated.insert(node);
+                    }
+                }
+            }
+        }
+
+        for node in topo.iter().rev() {
+            if is_allocated.contains(node) {
+                node.internal.data();
+            }
+        }
 
         self.internal.data()
     }

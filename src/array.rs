@@ -26,6 +26,19 @@ struct DArrayInternal {
 }
 
 impl DArrayInternal {
+    /// Returns if the data in the DArrayInternal has been initialized yet.
+    fn is_initialized(&self) -> bool {
+        // Initializing.
+        unsafe {
+            self.data.read()
+                .unwrap()
+                .get()
+                .as_ref()
+                .unwrap()
+                .is_none()
+        }
+    }
+
     /// Gets the data of the internal array.
     fn data(&self) -> &Vec<f64> {
         // Initializing.

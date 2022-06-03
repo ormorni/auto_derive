@@ -14,9 +14,6 @@ struct AddComp {
 
 impl<'t> AddComp {
     fn new(p1: DArray, p2: DArray) -> AddComp {
-        let p1 = expand_array(p1, &p2);
-        let p2 = expand_array(p2, &p1);
-
         assert_eq!(p1.len(), p2.len());
         AddComp {p1, p2}
     }
@@ -86,16 +83,79 @@ impl Computation for AddComp {
     }
 }
 
+#[derive(Clone, Eq, PartialEq)]
+struct AddScalarComp {
+    non_scalar: DArray,
+    scalar: DArray,
+}
+
+impl AddScalarComp {
+    fn new(p1: DArray, p2: DArray) -> AddScalarComp {
+        if p1.is_scalar() {
+            return AddScalarComp {non_scalar: p2, scalar: p1};
+        }
+        if p2.is_scalar() {
+            return AddScalarComp {non_scalar: p1, scalar: p2};
+        }
+        panic!("AddScalarComp created with no scalars!")
+    }
+}
+
+impl Computation for AddScalarComp {
+    fn sources(&self) -> Vec<DArray> {
+        vec![self.non_scalar.clone(), self.scalar.clone()]
+    }
+
+    fn derivatives(&self, res_grads: DArray) -> Vec<DArray> {
+        vec![res_grads.clone(), res_grads.sum()]
+    }
+
+    fn len(&self) -> usize {
+        self.non_scalar.len()
+    }
+
+    fn apply(&self, res_array: &mut [f64]) {
+        self.non_scalar.comp().apply(res_array);
+        let c = self.scalar.data()[0];
+        for v in res_array.iter_mut() {
+            *v += c;
+        }
+    }
+
+    fn apply_on_zero(&self, res_array: &mut [f64]) {
+        self.non_scalar.comp().apply_on_zero(res_array);
+        let c = self.scalar.data()[0];
+        for v in res_array.iter_mut() {
+            *v += c;
+        }
+    }
+
+    fn get_type(&self) -> ComputationType {
+        ComputationType::Add
+    }
+}
+
 impl <Other: Into<DArray>> Add<Other> for &DArray {
     type Output = DArray;
     fn add(self, rhs: Other) -> Self::Output {
-        DArray::from(AddComp::new(self.clone(), rhs.into()))
+        let rhs = rhs.into();
+        if self.is_scalar() || rhs.is_scalar() {
+            DArray::from(AddScalarComp::new(self.clone(), rhs))
+        } else {
+            DArray::from(AddComp::new(self.clone(), rhs))
+        }
     }
 }
+
 impl <Other: Into<DArray>> Add<Other> for DArray {
     type Output = DArray;
     fn add(self, rhs: Other) -> Self::Output {
-        DArray::from(AddComp::new(self, rhs.into()))
+        let rhs = rhs.into();
+        if self.is_scalar() ^ rhs.is_scalar() {
+            DArray::from(AddScalarComp::new(self.clone(), rhs))
+        } else {
+            DArray::from(AddComp::new(self, rhs))
+        }
     }
 }
 
@@ -121,8 +181,6 @@ struct MulComp {
 
 impl<'t> MulComp {
     fn new(p1: DArray, p2: DArray) -> MulComp {
-        let p1 = expand_array(p1, &p2);
-        let p2 = expand_array(p2, &p1);
         assert_eq!(p1.len(), p2.len());
         MulComp {p1, p2}
     }
@@ -139,7 +197,7 @@ impl Computation for MulComp {
             &self.p1 * &res_grads,
         ]
     }
-    
+
     fn len(&self) -> usize {
         self.p1.len()
     }
@@ -151,10 +209,11 @@ impl Computation for MulComp {
         }
     }
 
+
     fn get_type(&self) -> ComputationType {
         ComputationType::Binary
     }
-    
+
     fn apply_on_zero(&self, res_array: &mut [f64]) {
         if !self.p1.is_initialized() {
             self.p1.comp().apply_on_zero(res_array);
@@ -170,35 +229,96 @@ impl Computation for MulComp {
     }
 }
 
+
+#[derive(Clone, Eq, PartialEq)]
+struct MulScalarComp {
+    non_scalar: DArray,
+    scalar: DArray,
+}
+
+impl MulScalarComp {
+    fn new(p1: DArray, p2: DArray) -> MulScalarComp {
+        if p1.is_scalar() {
+            return MulScalarComp {non_scalar: p2, scalar: p1};
+        }
+        if p2.is_scalar() {
+            return MulScalarComp {non_scalar: p1, scalar: p2};
+        }
+        panic!("MulScalarComp created with no scalars!")
+    }
+}
+
+impl Computation for MulScalarComp {
+    fn sources(&self) -> Vec<DArray> {
+        vec![self.non_scalar.clone(), self.scalar.clone()]
+    }
+
+    fn derivatives(&self, res_grads: DArray) -> Vec<DArray> {
+        vec![res_grads.clone() * self.scalar.clone(), (res_grads * self.non_scalar.clone()).sum()]
+    }
+
+    fn len(&self) -> usize {
+        self.non_scalar.len()
+    }
+
+    fn apply(&self, res_array: &mut [f64]) {
+        self.non_scalar.comp().apply(res_array);
+        let c = self.scalar.data()[0];
+        for v in res_array.iter_mut() {
+            *v += c;
+        }
+    }
+
+    fn get_type(&self) -> ComputationType {
+        ComputationType::Binary
+    }
+
+    fn apply_on_zero(&self, res_array: &mut [f64]) {
+        self.non_scalar.comp().apply_on_zero(res_array);
+        let c = self.scalar.data()[0];
+        for v in res_array.iter_mut() {
+            *v *= c;
+        }
+    }
+}
+
 impl <Other: DArrayRef> Mul<Other> for &DArray {
     type Output = DArray;
 
     fn mul(self, rhs: Other) -> Self::Output {
-        DArray::from(MulComp::new(self.clone(), rhs.into()))
+        let rhs = rhs.into();
+        if self.is_scalar() ^ rhs.is_scalar() {
+            DArray::from(MulScalarComp::new(self.clone(), rhs))
+        } else {
+            DArray::from(MulComp::new(self.clone(), rhs))
+        }
     }
 }
 impl <Other: DArrayRef> Mul<Other> for DArray {
     type Output = DArray;
 
     fn mul(self, rhs: Other) -> Self::Output {
-        DArray::from(MulComp::new(self, rhs.into()))
+        let rhs = rhs.into();
+        if self.is_scalar() ^ rhs.is_scalar() {
+            DArray::from(MulScalarComp::new(self, rhs))
+        } else {
+            DArray::from(MulComp::new(self, rhs))
+        }
     }
 }
-
-
 
 impl <Other: DArrayRef> Div<Other> for DArray {
     type Output = DArray;
 
     fn div(self, rhs: Other) -> Self::Output {
-        DArray::from(MulComp::new(self, rhs.into().powi(-1)))
+        self * rhs.into().powi(-1)
     }
 }
 impl <Other: DArrayRef> Div<Other> for &DArray {
     type Output = DArray;
 
     fn div(self, rhs: Other) -> Self::Output {
-        DArray::from(MulComp::new(self.clone(), rhs.into().powi(-1)))
+        self * rhs.into().powi(-1)
     }
 }
 
@@ -212,22 +332,29 @@ mod tests {
     /// Tests a generic binary function.
     fn test_binary(func: impl Fn(DArray, DArray) -> DArray) {
         let mut rng = StdRng::from_seed(SEED);
-        for _ in 0..100 {
+        for i in 0..100 {
             let v1: f64 = rng.gen::<f64>() * 100. - 50.;
             let v2: f64 = rng.gen::<f64>() * 100. - 50.;
             let d1: f64 = (rng.gen::<f64>() * 100. - 50.) * DIFF + v1 * (1. - DIFF);
             let d2: f64 = (rng.gen::<f64>() * 100. - 50.) * DIFF + v2 * (1. - DIFF);
 
-            let array1 = DArray::from(v1);
-            let array2 = DArray::from(v2);
-            let diff1 = DArray::from(d1);
-            let diff2 = DArray::from(d2);
+            let array1 = DArray::from(v1);;
+            let diff1 = DArray::from(d1);;
+            let array2;
+            let diff2;
+            if i % 2 == 0 {
+                array2 = DArray::from(v2);
+                diff2 = DArray::from(d2);
+            } else {
+                array2 = DArray::from(vec![v2, v2]);
+                diff2 = DArray::from(vec![d2, d2]);
+            }
 
             let calc = func(array1.clone(), array2.clone());
             let calc_d1 = func(diff1.clone(), array2.clone());
             let calc_d2 = func(array1.clone(), diff2.clone());
 
-            let grad_map = func(array1.clone(), array2.clone()).derive();
+            let grad_map = func(array1.clone(), array2.clone()).index(0).derive();
 
             let grad1 = grad_map.get(&array1).unwrap().data()[0];
             let grad2 = grad_map.get(&array2).unwrap().data()[0];

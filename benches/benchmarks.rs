@@ -1,3 +1,4 @@
+#[cfg(feature = "benchmarks")]
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use rand::prelude::StdRng;
 use rand::{Rng, SeedableRng};
@@ -45,12 +46,18 @@ fn derivation(seed: &[u8; 32]) -> DArray {
     res.derive().get(&root).unwrap().clone()
 }
 
-
+#[cfg(feature = "benchmarks")]
 fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("graph_generation", |b| b.iter(|| random_graph(black_box(&SEED))));
     c.bench_function("graph_evaluation", |b| b.iter(|| computation(black_box(&SEED))));
     c.bench_function("graph_derivation", |b| b.iter(|| derivation(black_box(&SEED))));
 }
 
+#[cfg(feature = "benchmarks")]
 criterion_group!(benches, criterion_benchmark);
+#[cfg(feature = "benchmarks")]
 criterion_main!(benches);
+
+#[cfg(not(feature = "benchmarks"))]
+fn main() {
+}

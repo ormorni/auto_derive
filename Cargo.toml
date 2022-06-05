@@ -9,8 +9,10 @@ edition = "2021"
 itertools = "*"
 fxhash = "*"
 rand = "*"
-criterion = "*"
+criterion = {version = "*", optional = true}
 
+[features]
+benchmarks = ["dep:criterion"]
 
 [[bench]]
 name = "benchmarks"

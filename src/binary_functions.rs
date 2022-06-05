@@ -2,7 +2,6 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 use itertools::izip;
 
 use crate::computation::{Computation, ComputationType};
-use crate::index_functions::expand_array;
 use crate::array::{DArray, DArrayRef};
 
 /// A computation handling pointwise addition of two arrays.
@@ -122,16 +121,16 @@ impl Computation for AddScalarComp {
         }
     }
 
+    fn get_type(&self) -> ComputationType {
+        ComputationType::Add
+    }
+
     fn apply_on_zero(&self, res_array: &mut [f64]) {
         self.non_scalar.comp().apply_on_zero(res_array);
         let c = self.scalar.data()[0];
         for v in res_array.iter_mut() {
             *v += c;
         }
-    }
-
-    fn get_type(&self) -> ComputationType {
-        ComputationType::Add
     }
 }
 
@@ -338,8 +337,8 @@ mod tests {
             let d1: f64 = (rng.gen::<f64>() * 100. - 50.) * DIFF + v1 * (1. - DIFF);
             let d2: f64 = (rng.gen::<f64>() * 100. - 50.) * DIFF + v2 * (1. - DIFF);
 
-            let array1 = DArray::from(v1);;
-            let diff1 = DArray::from(d1);;
+            let array1 = DArray::from(v1);
+            let diff1 = DArray::from(d1);
             let array2;
             let diff2;
             if i % 2 == 0 {
